@@ -25,4 +25,5 @@ for i in sub*; do
 
 		    sleep 1
 		fi
+	done
 done

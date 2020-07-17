@@ -1,18 +1,23 @@
 #!/bin/bash
 
-#SBATCH --time=10:00:00   # walltime
+#SBATCH --time=01:00:00   # walltime
 #SBATCH --ntasks=1   # number of processor cores (i.e. tasks)
 #SBATCH --nodes=1   # number of nodes
 #SBATCH --mem-per-cpu=8gb   # memory per CPU core
 #SBATCH -J "TS3"   # job name
+#SBATCH --partition IB_44C_512G
+#SBATCH --account iacc_madlab
 
+# #SBATCH --qos pq_madlab
+# #SBATCH -o /scratch/madlab/crash/rtv_temp2epi_o
+# #SBATCH -e /scratch/madlab/crash/rtv_temp2epi_e
 
 
 module unload gcc/7.1.0
 module load gcc-8.2.0-gcc-4.8.5-sxbf4jq
 module load python-3.7.0-gcc-8.2.0-joh2xyk
 module load R/3.4.3
-module load afni/openmp
+module load afni-20.1.00
 
 
 
@@ -39,11 +44,15 @@ module load afni/openmp
 
 
 
+
+
+
 module unload gcc/7.1.0
 module load gcc-8.2.0-gcc-4.8.5-sxbf4jq
 module load python-3.7.0-gcc-8.2.0-joh2xyk
 module load R/3.4.3
 module load afni/openmp
+module load c3d/1.0.0
 
 
 
@@ -57,6 +66,7 @@ sess=$2
 
 parDir=~/compute/ChenTest				  			# parent dir, where derivatives is located
 workDir=${parDir}/derivatives/${subj}/$sess
+priorDir=~/bin/Templates/vold2_mni/priors_JLF
 
 txtFile=1														# whether timing files are in txt format (1) or 1D (0)
 txtTime=1														# if txt file has block duration (1:3) for pmBLOCK (1=on)
@@ -64,6 +74,13 @@ runDecons=0														# toggle for running reml scripts and post hoc (1=on) o
 
 deconNum=(1)													# See Note 4 above
 deconPref=(study)												# array of prefix for each planned decon (length must equal sum of $deconNum)
+
+
+
+### Update for ROI
+priorNum=(0018)
+priorNam=(LAmyg)
+
 
 
 
@@ -119,17 +136,14 @@ cd $workDir
 
 > tmp.txt
 for i in run*scale+tlrc.HEAD; do
-
 	tmp=${i%_*}
 	run=${i%%_*}
 	phase=${tmp#*_}
-
 	echo -e "$run \t $phase" >> tmp.txt
 done
 
 awk -F '\t' '{print $2}' tmp.txt | sort | uniq -c > phase_list.txt
 rm tmp.txt
-
 
 blockArr=(`cat phase_list.txt | awk '{print $1}'`)
 phaseArr=(`cat phase_list.txt | awk '{print $2}'`)
@@ -242,16 +256,13 @@ GenDecon (){
 
     for ((r=1; r<=${h_block}; r++)); do
         for ((b=0; b<=5; b++)); do
-
             stimBase+="-stim_file $x mot_demean_${h_phase}.r0${r}.1D'[$b]' -stim_base $x -stim_label $x mot_$x "
             let x=$[$x+1]
         done
     done
 
-
 	# build behavior list
 	unset stimBeh
-
 
 	# if txt files supplied
 	if [ $txtFile == 1 ]; then
@@ -282,17 +293,17 @@ GenDecon (){
 	# num_stimts
     h_nstim=$(($x-1))
 
+	# write script 					### should i switch input to input1D?
 
-	# write script
     echo "3dDeconvolve \
     -x1D_stop \
-    -input $h_input \
+    -input1D $h_input \
     -censor censor_${h_phase}_combined.1D \
     -polort A -float \
     -num_stimts $h_nstim \
     $stimBase \
     $stimBeh \
-    -jobs 1 \
+    -jobs 6 \
     -x1D X.${h_out}.xmat.1D \
     -xjpeg X.${h_out}.jpg \
     -x1D_uncensored X.${h_out}.nocensor.xmat.1D \
@@ -307,12 +318,10 @@ GenDecon (){
 # motion and censor files are constructed. Multiple motion files
 # include mean and derivative of motion.
 
-
 c=0; while [ $c -lt $phaseLen ]; do
 
 	phase=${phaseArr[$c]}
 	nruns=${blockArr[$c]}
-
 	cat dfile.run-*${phase}.1D > dfile_rall_${phase}.1D
 
 	if [ ! -s censor_${phase}_combined.1D ]; then
@@ -323,12 +332,10 @@ c=0; while [ $c -lt $phaseLen ]; do
 		1d_tool.py -infile motion_demean_${phase}.1D -set_nruns $nruns -split_into_pad_runs mot_demean_${phase}
 		1d_tool.py -infile dfile_rall_${phase}.1D -set_nruns $nruns -show_censor_count -censor_prev_TR -censor_motion 0.3 motion_${phase}
 
-
 		# determine censor
 		cat out.cen.run-*${phase}.1D > outcount_censor_${phase}.1D
 		1deval -a motion_${phase}_censor.1D -b outcount_censor_${phase}.1D -expr "a*b" > censor_${phase}_combined.1D
 	fi
-
 	let c=$[$c+1]
 done
 
@@ -342,46 +349,70 @@ done
 
 c=0; count=0; while [ $c -lt $phaseLen ]; do
 
+	# create input list
 	phase=${phaseArr[$c]}
 
-	# create input list
-	unset input
-	for j in run-*${phase}_scale+tlrc.HEAD; do
-		input+="${j%.*} "
-	done
 
-	# for each planned decon
-	numD=${deconNum[$c]}
-	for(( i=1; i<=$numD; i++)); do
 
-		out=${deconPref[$count]}
+	### update - change $input to mean TS for ROI
 
-		# write script
-		if [ $txtFile == 1 ]; then
 
-			holdName=($(eval echo \${nam${out}[@]}))
-			holdTxt=$(eval echo \${txt${out}[@]})
+	cc=0; while [ $cc -lt ${#priorNam[@]} ]; do
+		
+		# get, resample ROI mask
+		prior=${priorDir}/label_${priorNum[$cc]}.nii.gz
+		label=label_${priorNam[$cc]}
+		
+		if [ ! -f ${label}+tlrc.HEAD ]; then
+			c3d $prior -thresh 0.3 1 1 0 -o ./tmp_${label}.nii.gz
+			3dresample -master run-1_${deconPref[0]}_scale+tlrc -rmode NN -input tmp_${label}.nii.gz -prefix tmp_${label}+tlrc
+			3dcalc -a tmp_${label}+tlrc -expr 'step(a-0.999)' -prefix ${label}+tlrc
+		fi
 
-			if [ $txtTime == 1 ]; then
-				GenDecon $phase ${blockArr[$c]} "$input" $out ${#holdName[@]} ${holdName[@]} $holdTxt
+		# extract mean time series of each run
+		# unset input
+		> input.1D
+		for j in run-*${phase}_scale+tlrc.HEAD; do
+			3dmaskave -quiet -mask ${label}+tlrc ${j%.*} > ${j%_*}_${label}_AVG.1D
+			cat ${j%_*}_${label}_AVG.1D >> input.1D
+			# input+="${j%_*}_${label}_AVG.1D\ " 									### Should the 1D files be concatenated?
+		done
+		input=input.1D
+
+		# unset input
+		# for j in run-*${phase}_scale+tlrc.HEAD; do
+		# 	input+="${j%.*} "
+		# done
+
+		# for each planned decon
+		numD=${deconNum[$c]}
+		for(( i=1; i<=$numD; i++)); do
+
+			# write script
+			out=${deconPref[$count]}
+			if [ $txtFile == 1 ]; then
+				holdName=($(eval echo \${nam${out}[@]}))
+				holdTxt=$(eval echo \${txt${out}[@]})
+				if [ $txtTime == 1 ]; then
+					GenDecon $phase ${blockArr[$c]} "$input" $out ${#holdName[@]} ${holdName[@]} $holdTxt
+				# else
+				# 	GenDecon $phase ${blockArr[$c]} "$input" $out ${#holdName[@]} ${deconLen[$c]} ${holdName[@]} $holdTxt
+				fi
 			# else
-			# 	GenDecon $phase ${blockArr[$c]} "$input" $out ${#holdName[@]} ${deconLen[$c]} ${holdName[@]} $holdTxt
+			# 	holdName=($(eval echo \${nam${out}[@]}))
+			# 	GenDecon $phase ${blockArr[$c]} ${deconTiming[$count]} ${deconLen[$c]} "$input" $out ${#holdName[@]}
 			fi
-		# else
 
-		# 	holdName=($(eval echo \${nam${out}[@]}))
-		# 	GenDecon $phase ${blockArr[$c]} ${deconTiming[$count]} ${deconLen[$c]} "$input" $out ${#holdName[@]}
-		fi
+			# run script
+			if [ -f ${out}_stats.REML_cmd ]; then
+				rm ${out}_stats.REML_cmd
+			fi
+			source ${out}_deconv.sh
 
-		# run script
-		if [ -f ${out}_stats.REML_cmd ]; then
-			rm ${out}_stats.REML_cmd
-		fi
-		source ${out}_deconv.sh
-
-		count=$(($count+1))
+			count=$(($count+1))
+		done
+		let cc+=1
 	done
-
 	let c=$[$c+1]
 done
 
@@ -393,50 +424,38 @@ done
 # REML deconvolution (GLS) is run, excluding WM signal.
 # Global SNR and corr are calculated.
 
-
 c=0; count=0; while [ $c -lt $phaseLen ]; do
-
 
 	# loop through number of planned decons, set arr
 	phase=${phaseArr[$c]}
-
 	numD=${deconNum[$c]}
 	x=0; for((i=1; i<=$numD; i++)); do
-
 		regArr[$x]=${deconPref[$count]}
-
 		let x=$[$x+1]
 		let count=$[$count+1]
 	done
 
-
 	# all runs signal
 	countS=`1d_tool.py -infile censor_${phase}_combined.1D -show_trs_uncensored encoded`
-
 	if [ ! -f ${regArr[0]}_TSNR+tlrc.HEAD ]; then
 		3dTcat -prefix tmp_${phase}_all_runs run-*${phase}_scale+tlrc.HEAD
 		3dTstat -mean -prefix tmp_${phase}_allSignal tmp_${phase}_all_runs+tlrc"[${countS}]"
 	fi
 
-
 	# timeseries of eroded WM
 	if [ ! -f ${phase}_WMe_rall+tlrc.HEAD ]; then
-
 		3dTcat -prefix tmp_allRuns_${phase} run-*${phase}_volreg_clean+tlrc.HEAD
 		3dcalc -a tmp_allRuns_${phase}+tlrc -b final_mask_WM_eroded+tlrc -expr "a*bool(b)" -datum float -prefix tmp_allRuns_${phase}_WMe
 		3dmerge -1blur_fwhm 20 -doall -prefix ${phase}_WMe_rall tmp_allRuns_${phase}_WMe+tlrc
 	fi
 
-
 	for j in ${regArr[@]}; do
 		if [ $runDecons == 1 ]; then
-
 
 			# REML
 			if [ ! -f ${j}_stats_REML+tlrc.HEAD ]; then
 				tcsh -x ${j}_stats.REML_cmd -dsort ${phase}_WMe_rall+tlrc
 			fi
-
 
 			# kill if REMl failed
 			if [ ! -f ${j}_stats_REML+tlrc.HEAD ]; then
@@ -445,7 +464,6 @@ c=0; count=0; while [ $c -lt $phaseLen ]; do
 				echo "" >&2
 				exit 5
 			fi
-
 
 			# calc SNR, corr
 			if [ ! -f ${j}_TSNR+tlrc.HEAD ]; then
@@ -464,7 +482,6 @@ c=0; count=0; while [ $c -lt $phaseLen ]; do
 			fi
 		fi
 
-
 		# detect pairwise cor
 		1d_tool.py -show_cormat_warnings -infile X.${j}.xmat.1D | tee out.${j}.cormat_warn.txt
 	done
@@ -472,19 +489,15 @@ c=0; count=0; while [ $c -lt $phaseLen ]; do
 done
 
 
-
 for i in ${deconPref[@]}; do
 
 	# sum of regressors, stim only x-matrix
 	if [ ! -s X.${i}.stim.xmat.1D ]; then
-
 		reg_cols=`1d_tool.py -infile X.${i}.nocensor.xmat.1D -show_indices_interest`
 		3dTstat -sum -prefix ${i}_sum_ideal.1D X.${i}.nocensor.xmat.1D"[$reg_cols]"
 		1dcat X.${i}.nocensor.xmat.1D"[$reg_cols]" > X.${i}.stim.xmat.1D
 	fi
 done
-
-
 
 
 #### --- Print out info, Clean --- ###
@@ -515,7 +528,6 @@ if [ $runDecons == 1 ]; then
 			cp X.${k}.xmat.1D X.xmat.1D
 			3dcopy ${k}_errts_REML+tlrc errts.${subj}+tlrc
 
-
 			# generate script
 			gen_ss_review_scripts.py \
 			-subj ${subj} \
@@ -532,10 +544,8 @@ if [ $runDecons == 1 ]; then
 			-final_view tlrc \
 			-exit0
 
-
 			# run script - write an output for e/analysis
 			./\@ss_review_basic | tee out_summary_${k}.txt
-
 
 			# clean
 			rm errts.*
