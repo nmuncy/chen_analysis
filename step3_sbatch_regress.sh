@@ -59,59 +59,26 @@ parDir=~/compute/ChenTest				  			# parent dir, where derivatives is located
 workDir=${parDir}/derivatives/${subj}/$sess
 priorDir=~/bin/Templates/vold2_mni/priors_JLF
 
-txtFile=1														# whether timing files are in txt format (1) or 1D (0)
-txtTime=1														# if txt file has block duration (1:3) for pmBLOCK (1=on)
-runDecons=0														# toggle for running reml scripts and post hoc (1=on) or just writing scripts (0)
-
 deconNum=(1)													# See Note 4 above
 deconPref=(study)												# array of prefix for each planned decon (length must equal sum of $deconNum)
+runDecons=0														# toggle for running reml scripts and post hoc (1=on) or just writing scripts (0)
 
 
-
-### Update for ROI
+# Update for ROI
 priorNum=(0018)
 priorNam=(LAmyg)
 
 
-
-
-### patch - set up txt and nam arrays
+# patch - set up txt and nam arrays
 cd ${workDir}/timing_files
 
 unset txtstudy namstudy
 txtArr=(`ls -1v *txt`)
-# c=0; for i in *.txt; do
 c=0; for i in ${txtArr[@]}; do
 	txtstudy[$c]=$i
 	namstudy[$c]=${i%.*}
 	let c+=1
 done
-
-
-# # For txt timing files
-# txtEncoding=(${subj}_TF_Rp{CR,FA,Hit,Miss}_All.txt)
-# txtResponse=(${subj}_TF_{CR,FA,Hit,Miss,Foil}_All.txt)
-
-# # Label beh sub-bricks, per decon
-# namEncoding=(CR FA Hit Miss)									# "Foo" of namFoo matches a $deconPref value, one string per timing file (e.g. deconPref=(SpT1); namSpT1=(Hit CR Miss FA))
-# namResponse=(CR FA Hit Miss Foil)
-
-
-
-# ### Get timing files
-# refDir=${parDir}/Analyses/behAnalysis/timing_files
-# timDir=${workDir}/timing_files
-# mkdir $timDir
-# cp ${refDir}/${subj}_TF* $timDir
-
-
-# ## test if NR TF has points, update array
-# nr_content=`grep "[0-9]" ${timDir}/${subj}_TF_NR_All.txt`
-# if [ ! -z $nr_content ]; then
-
-# 	txtResponse+=(${subj}_TF_NR_All.txt)
-# 	namResponse+=(NR)
-# fi
 
 
 
@@ -120,11 +87,8 @@ done
 #
 # Determine number of phases, and number of blocks per phase
 # then set these as arrays. Set up decon arrays.
-# Check the deconvolution variables are set up correctly.
 # Function for writing decon script.
 
-
-### determine num phases/blocks
 cd $workDir
 
 > tmp.txt
@@ -142,111 +106,45 @@ blockArr=(`cat phase_list.txt | awk '{print $1}'`)
 phaseArr=(`cat phase_list.txt | awk '{print $2}'`)
 phaseLen=${#phaseArr[@]}
 
-
-### checks
-if [ ! ${#phaseArr[@]} -gt 0 ]; then
-	echo "" >&2
-	echo "Problem determinig number of phases and blocks per phase. Check step1 setup. Exit 1" >&2
-	echo "" >&2
-	exit 1
-fi
-
 unset numDecon
 for i in ${deconNum[@]}; do
 	numDecon=$(( $numDecon + $i ))
 done
 
-# if [ $txtFile != 1 ]; then
-# 	if [ $numDecon != ${#deconTiming[@]} ] || [ $numDecon != ${#deconPref[@]} ]; then
-# 		echo "" >&2
-# 		echo "Number of planned deconvolutions != to number of timing files or prefixes. Exit 2" >&2
-# 		echo "" >&2
-# 		exit 2
-# 	fi
-# fi
 
-if [ $phaseLen != ${#deconNum[@]} ]; then
-	echo "" >&2
-	echo "Length of $phaseLen != ${#deconNum[@]}. decons for each phase are required. Exit 3" >&2
-	echo "" >&2
-	exit 3
-fi
-
-# if [ $txtFile != 1 ]; then
-# 	tfCount=`ls timing_files/*.01.1D | wc -l`
-# 	if [ $tfCount == 0 ]; then
-# 		echo "" >&2
-# 		echo "Did not detect dir \"timing_files\" or timing_files/*01.1D in $workDir. Exit 4" >&2
-# 		echo "" >&2
-# 		exit 4
-# 	fi
-# fi
-
-# if [ $txtTime != 1 ] && [ ${#deconLen[@]} -lt 1 ]; then
-# 	echo >&2
-# 	echo "A block duration argument is needed if txtTime=0. Exit 5" >&2
-# 	echo >&2
-# 	exit 5
-# fi
-
-
-
-### Function - write deconvolution script
+# Function - write deconvolution script
 GenDecon (){
 
-	# assign vars for readability
-	if [ $txtFile == 1 ]; then
-		if [ $txtTime == 1 ]; then
+	# assign vars for "readability"
+	local h_tr=$1
+	local h_phase=$2
+	local h_block=$3
+	local h_input=$4
+	local h_out=$5
+	local h_len=$6
 
-			local h_phase=$1
-			local h_block=$2
-		    local h_input=$3
-		    local h_out=$4
-		    local h_len=$5
+	# local h_phase=$1
+	# local h_block=$2
+	# local h_input=$3
+	# local h_out=$4
+	# local h_len=$5
 
-		    for aa in {1..5}; do
-			    shift
-		    done
+    # for aa in {1..5}; do
+	   #  shift
+    # done
 
-		    local h_arr=( "$@" )
-		    local nam=(${h_arr[@]:0:$h_len})
-		    local txt=(${h_arr[@]:$h_len})
+    # extract nested arrays
+    shift 6
+    # shift 5
+    local h_arr=( "$@" )
+    local nam=(${h_arr[@]:0:$h_len})
+    local txt=(${h_arr[@]:$h_len})
 
-		# else
-		# 	local h_phase=$1
-		# 	local h_block=$2
-		#     local h_input=$3
-		#     local h_out=$4
-		#     local h_len=$5
-		#     local h_trlen=$6
-
-		#     for aa in {1..6}; do
-		# 	    shift
-		#     done
-
-		#     local h_arr=( "$@" )
-		#     local nam=(${h_arr[@]:0:$h_len})
-		#     local txt=(${h_arr[@]:$h_len})
-		fi
-	# else
-	# 	local h_phase=$1
-	# 	local h_block=$2
-	# 	local h_tfile=$3
-	# 	local h_trlen=$4
-	#     local h_input=$5
-	#     local h_out=$6
-
-	#     for aa in {1..6}; do
-	# 	    shift
-	#     done
-	#     local nam=( "$@" )
-    fi
-
+    # keep track of number of regressors (num_stimts) via counting var x
+    x=1
 
 	# build motion list
 	unset stimBase
-    x=1
-
     for ((r=1; r<=${h_block}; r++)); do
         for ((b=0; b<=5; b++)); do
             stimBase+="-stim_file $x mot_demean_${h_phase}.r0${r}.1D'[$b]' -stim_base $x -stim_label $x mot_$x "
@@ -256,43 +154,27 @@ GenDecon (){
 
 	# build behavior list
 	unset stimBeh
+	> X.stimBeh.txt ### for trouble shooting
+	cc=0; while [ $cc -lt ${#txt[@]} ]; do
+		stimBeh+="-stim_times_AM1 $x timing_files/${txt[$cc]} \"dmBLOCK(1)\" -stim_label $x ${nam[$cc]} "
+		# stimBeh+="-stim_times_AM1 $x timing_files/${txt[$cc]} \"dmBLOCK(1)\" -stim_label $x beh_${nam[$cc]} "
 
-	# if txt files supplied
-	if [ $txtFile == 1 ]; then
-		if [ $txtTime == 1 ]; then
-			cc=0; while [ $cc -lt ${#txt[@]} ]; do
-				stimBeh+="-stim_times_AM1 $x timing_files/${txt[$cc]} \"dmBLOCK(1)\" -stim_label $x ${nam[$cc]} "
-				# stimBeh+="-stim_times_AM1 $x timing_files/${txt[$cc]} \"dmBLOCK(1)\" -stim_label $x beh_${nam[$cc]} "
-				let x=$[$x+1]
-				let cc=$[$cc+1]
-			done
-		# else
-		# 	cc=0; while [ $cc -lt ${#txt[@]} ]; do
-		# 		stimBeh+="-stim_times $x timing_files/${txt[$cc]} \"BLOCK(${h_trlen},1)\" -stim_label $x beh_${nam[$cc]} "
-		# 		let x=$[$x+1]
-		# 		let cc=$[$cc+1]
-		# 	done
-		fi
+		# for trouble shooting
+		echo "$cc: -stim_times_AM1 $x timing_files/${txt[$cc]} \"dmBLOCK(1)\" -stim_label $x ${nam[$cc]} " >> X.stimBeh.txt
+		cat timing_files/${txt[$cc]} >> X.stimBeh.txt
 
-	# if 1D files supplies
-	# else
-	#     tBeh=`ls timing_files/${h_tfile}* | wc -l`
-	#     for ((t=1; t<=$tBeh; t++)); do
-	#         stimBeh+="-stim_times $x timing_files/${h_tfile}.0${t}.1D \"BLOCK(${h_trlen},1)\" -stim_label $x beh_${nam[$(($t-1))]} "
-	#         let x=$[$x+1]
-	#     done
-    fi
-
+		let x=$[$x+1]
+		let cc=$[$cc+1]
+	done
 
 	# num_stimts
     h_nstim=$(($x-1))
 
-	# write script 					### TR_1D hard coded
-
+	# write script
     echo "3dDeconvolve \
     -x1D_stop \
     -input1D $h_input \
-    -TR_1D 1.76 \
+    -TR_1D $h_tr \
     -censor censor_${h_phase}_combined.1D \
     -polort A -float \
     -num_stimts $h_nstim \
@@ -341,17 +223,14 @@ done
 #
 # A deconvolution script (foo_deconv.sh) is generated and ran for
 # each planned deconvolution.
+#
+# Update: for each ROI's mean time series
 
+# loop through experiment phases
 c=0; count=0; while [ $c -lt $phaseLen ]; do
-
-	# create input list
 	phase=${phaseArr[$c]}
 
-
-
-	### update - change $input to mean TS for ROI
-
-
+	# loop through ROIs
 	cc=0; while [ $cc -lt ${#priorNam[@]} ]; do
 		
 		# get, resample ROI mask
@@ -364,41 +243,36 @@ c=0; count=0; while [ $c -lt $phaseLen ]; do
 			3dcalc -a tmp_${label}+tlrc -expr 'step(a-0.999)' -prefix ${label}+tlrc
 		fi
 
-		# extract mean time series of each run
-		# unset input
+		# extract mean time series of each ROI*run
 		> input.1D
 		for j in run-*${phase}_scale+tlrc.HEAD; do
 			3dmaskave -quiet -mask ${label}+tlrc ${j%.*} > ${j%_*}_${label}_AVG.1D
 			cat ${j%_*}_${label}_AVG.1D >> input.1D
-			# input+="${j%_*}_${label}_AVG.1D\ " 									### Should the 1D files be concatenated?
 		done
-		input=input.1D
+
+		# determine TR duration (for 1D file), use last iteration of j loop above
+		holdTR=`3dinfo -tr ${j%.*}`
 
 		# unset input
 		# for j in run-*${phase}_scale+tlrc.HEAD; do
 		# 	input+="${j%.*} "
 		# done
+		input=input.1D 			### just to keep things consistent
 
-		# for each planned decon
+		# loop through planned decons
 		numD=${deconNum[$c]}
 		for(( i=1; i<=$numD; i++)); do
 
-			# write script
+			# determine timing files for decon
 			out=${deconPref[$count]}
-			if [ $txtFile == 1 ]; then
-				holdName=($(eval echo \${nam${out}[@]}))
-				holdTxt=$(eval echo \${txt${out}[@]})
-				if [ $txtTime == 1 ]; then
-					GenDecon $phase ${blockArr[$c]} "$input" $out ${#holdName[@]} ${holdName[@]} $holdTxt
-				# else
-				# 	GenDecon $phase ${blockArr[$c]} "$input" $out ${#holdName[@]} ${deconLen[$c]} ${holdName[@]} $holdTxt
-				fi
-			# else
-			# 	holdName=($(eval echo \${nam${out}[@]}))
-			# 	GenDecon $phase ${blockArr[$c]} ${deconTiming[$count]} ${deconLen[$c]} "$input" $out ${#holdName[@]}
-			fi
+			holdName=($(eval echo \${nam${out}[@]}))
+			holdTxt=$(eval echo \${txt${out}[@]})
 
-			# run script
+			# write script
+			GenDecon $holdTR $phase ${blockArr[$c]} "$input" $out ${#holdName[@]} ${holdName[@]} $holdTxt
+			# GenDecon $phase ${blockArr[$c]} "$input" $out ${#holdName[@]} ${holdName[@]} $holdTxt
+
+			# run script, to generate reml_cmd script and matrices
 			if [ -f ${out}_stats.REML_cmd ]; then
 				rm ${out}_stats.REML_cmd
 			fi
@@ -419,6 +293,7 @@ done
 # REML deconvolution (GLS) is run, excluding WM signal.
 # Global SNR and corr are calculated.
 
+# loop through experiment phases
 c=0; count=0; while [ $c -lt $phaseLen ]; do
 
 	# loop through number of planned decons, set arr
@@ -444,10 +319,11 @@ c=0; count=0; while [ $c -lt $phaseLen ]; do
 		3dmerge -1blur_fwhm 20 -doall -prefix ${phase}_WMe_rall tmp_allRuns_${phase}_WMe+tlrc
 	fi
 
+	# loop thorugh planned decons
 	for j in ${regArr[@]}; do
 		if [ $runDecons == 1 ]; then
 
-			# REML
+			# do REML
 			if [ ! -f ${j}_stats_REML+tlrc.HEAD ]; then
 				tcsh -x ${j}_stats.REML_cmd -dsort ${phase}_WMe_rall+tlrc
 			fi
