@@ -13,12 +13,6 @@
 # #SBATCH -e /scratch/madlab/crash/rtv_temp2epi_e
 
 
-module unload gcc/7.1.0
-module load gcc-8.2.0-gcc-4.8.5-sxbf4jq
-module load python-3.7.0-gcc-8.2.0-joh2xyk
-module load R/3.4.3
-module load afni-20.1.00
-
 
 
 
@@ -41,9 +35,6 @@ module load afni-20.1.00
 #			e.g. deconNum=(1 2 1) means one decon from first phase, two from second, etc.
 #		Note - A value must be entered for each phase, even if no decon is desired
 #			e.g. deconNum=(0 1 0) for one only decon from second phase, and no others
-
-
-
 
 
 
@@ -88,7 +79,9 @@ priorNam=(LAmyg)
 cd ${workDir}/timing_files
 
 unset txtstudy namstudy
-c=0; for i in *.txt; do
+txtArr=(`ls -1v *txt`)
+# c=0; for i in *.txt; do
+c=0; for i in ${txtArr[@]}; do
 	txtstudy[$c]=$i
 	namstudy[$c]=${i%.*}
 	let c+=1
@@ -268,7 +261,8 @@ GenDecon (){
 	if [ $txtFile == 1 ]; then
 		if [ $txtTime == 1 ]; then
 			cc=0; while [ $cc -lt ${#txt[@]} ]; do
-				stimBeh+="-stim_times_AM1 $x timing_files/${txt[$cc]} \"dmBLOCK(1)\" -stim_label $x beh_${nam[$cc]} "
+				stimBeh+="-stim_times_AM1 $x timing_files/${txt[$cc]} \"dmBLOCK(1)\" -stim_label $x ${nam[$cc]} "
+				# stimBeh+="-stim_times_AM1 $x timing_files/${txt[$cc]} \"dmBLOCK(1)\" -stim_label $x beh_${nam[$cc]} "
 				let x=$[$x+1]
 				let cc=$[$cc+1]
 			done
@@ -293,17 +287,18 @@ GenDecon (){
 	# num_stimts
     h_nstim=$(($x-1))
 
-	# write script 					### should i switch input to input1D?
+	# write script 					### TR_1D hard coded
 
     echo "3dDeconvolve \
     -x1D_stop \
     -input1D $h_input \
+    -TR_1D 1.76 \
     -censor censor_${h_phase}_combined.1D \
     -polort A -float \
     -num_stimts $h_nstim \
     $stimBase \
     $stimBeh \
-    -jobs 6 \
+    -jobs 1 \
     -x1D X.${h_out}.xmat.1D \
     -xjpeg X.${h_out}.jpg \
     -x1D_uncensored X.${h_out}.nocensor.xmat.1D \
