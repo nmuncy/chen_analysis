@@ -82,36 +82,51 @@ for i in subjList:
 		string = "McMakin_EMU-000-R01_" + subNum + sesNum + "-" + sesNum + ".tar.gz"
 
 		# temporarily unpack small reference dir from tar ball
-		tarBall = tarfile.open(os.path.join(dicomDir,string),'r')
-		for member in tarBall.getmembers():
-			if "1-localizer_32ch" in member.name:
-				tarBall.extract(member, outDir)
+		# tarBall = tarfile.open(os.path.join(dicomDir,string),'r')
+		# for member in tarBall.getmembers():
+		# 	if "1-localizer_32ch" in member.name:
+		# 		tarBall.extract(member, outDir)
 
-		dicomPath = os.path.join(os.path.join(outDir, "scratch/akimb009/McMakin_EMU", string[:-7], "scans/1-localizer_32ch/resources/DICOM/files"))
+		# set dicom reference
+		dicomPath = os.path.join(outDir, "scratch/akimb009/McMakin_EMU", string[:-7], "scans/1-localizer_32ch/resources/DICOM/files")
 		dicomList = os.listdir(dicomPath)
-		dicomRef = os.path.join(dicomPath, dicomList[0])
+		dicomHold = os.path.join(dicomPath, dicomList[0])
+		shutil.copyfile(dicomHold, os.path.join(outDir, "test.dcm"))
+		dicomRef = os.path.join(outDir, "test.dcm")
+		print("Dicom Path:")
 		print(dicomRef)
+		print()
 
-		# store dicom header output
-		dicomHead = subprocess.check_call(["dicom_hdr", dicomRef])
-		subprocess.run(["afni -ver"])
-		# output, error = dicomHead.communicate()
-		# print(output)	
+		# # test subprocess
+		# bashCommand = "afni -ver"
+		# process = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
+		# output, error = process.communicate()
+		# print("Subprocess test:")
+		# print(output)
+		# print()
 
-		scanList = MkScanList(i, j)
-		for k in scanList:
+		# pull dicom header
+		processD = subprocess.Popen(['dicom_hdr', dicomRef], stdout=subprocess.PIPE)
+		outputD, errorD = processD.communicate()
+		print("Dicom Header:")
+		print(outputD)
+		# print(processD)
 
-			jsonList = MkJsonList(i, j, k)
+
+		# scanList = MkScanList(i, j)
+		# for k in scanList:
+
+		# 	jsonList = MkJsonList(i, j, k)
 			# print(jsonList)
 
 			# row_dict = {'src_subject_id': i, 'image_file': k}
 			# append_dict_as_row(outFile, row_dict, ndaColumns)
 
 
-			bashCommand = "afni -ver"
-			process = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
-			output, error = process.communicate()
-			print(output)
+			# bashCommand = "afni -ver"
+			# process = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
+			# output, error = process.communicate()
+			# print(output)
 
 		# clean unpacked tar ball
 		# shutil.rmtree(os.path.join(outDir, "scratch"))
