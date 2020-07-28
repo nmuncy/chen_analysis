@@ -3,10 +3,10 @@
 
 ### get modules
 import os
-import shutil
 import csv
-import subprocess
 import tarfile
+import pydicom
+
 
 
 
@@ -22,10 +22,6 @@ outFile = os.path.join(outDir,"test.csv")
 
 
 ### set functions
-def MkSessList(subj):
-	return os.listdir(os.path.join(dataDir, subj))
-# print MkSessList("sub-4002")
-
 def MkScanList(subj, sess):
 	h_sessList = []
 	h_sessDir = os.path.join(dataDir, subj, sess)
@@ -46,11 +42,12 @@ def MkJsonList(subj, sess, scan):
 # print(MkJsonList("sub-4002", "ses-S1", "anat"))
 
 # from csv import DictWriter
-# def append_dict_as_row(file_name, dict_of_elem, field_names):
-#     with open(file_name, 'a+') as write_obj:
-#     	dict_writer = csv.writer(write_obj)
-#         dict_writer = csv.DictWriter(write_obj, fieldnames = field_names)
-#         dict_writer.writerow(dict_of_elem)
+def append_dict_as_row(file_name, dict_of_elem, field_names):
+	with open(file_name, 'a+') as write_obj:
+		dict_writer = csv.writer(write_obj)
+		dict_writer = csv.DictWriter(write_obj, fieldnames = field_names)
+		dict_writer.writerow(dict_of_elem)
+
 
 
 
@@ -59,14 +56,16 @@ def MkJsonList(subj, sess, scan):
 with open(ndaTemplate) as fd:
 	reader = csv.reader(fd)
 	holdCols = [row for idx, row in enumerate(reader) if idx == 1]
+
 ndaColumns = holdCols[0]
-# print ndaColumns
 
 
 # start new csv
-# with open(outFile, 'wb') as file:
-# 	writer = csv.writer(file)
-# 	writer.writerow(ndaColumns)
+with open(outFile, 'w') as file:
+	writer = csv.writer(file)
+	writer.writerow(ndaColumns)
+
+
 
 
 ### Mine files
@@ -74,7 +73,7 @@ subjList = [i for i in os.listdir(dataDir) if 'sub-' in i]
 for i in subjList:
 
 	subNum = i[4:]
-	sessList = MkSessList(i)
+	sessList = os.listdir(os.path.join(dataDir, i))
 
 	for j in sessList:
 
@@ -87,46 +86,35 @@ for i in subjList:
 		# 	if "1-localizer_32ch" in member.name:
 		# 		tarBall.extract(member, outDir)
 
-		# set dicom reference
+		# determine, pull dicom header
 		dicomPath = os.path.join(outDir, "scratch/akimb009/McMakin_EMU", string[:-7], "scans/1-localizer_32ch/resources/DICOM/files")
 		dicomList = os.listdir(dicomPath)
 		dicomHold = os.path.join(dicomPath, dicomList[0])
-		shutil.copyfile(dicomHold, os.path.join(outDir, "test.dcm"))
-		dicomRef = os.path.join(outDir, "test.dcm")
-		print("Dicom Path:")
-		print(dicomRef)
-		print()
-
-		# # test subprocess
-		# bashCommand = "afni -ver"
-		# process = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
-		# output, error = process.communicate()
-		# print("Subprocess test:")
-		# print(output)
-		# print()
-
-		# pull dicom header
-		processD = subprocess.Popen(['dicom_hdr', dicomRef], stdout=subprocess.PIPE)
-		outputD, errorD = processD.communicate()
-		print("Dicom Header:")
-		print(outputD)
-		# print(processD)
+		dicomHead = pydicom.read_file(dicomHold)
 
 
-		# scanList = MkScanList(i, j)
-		# for k in scanList:
+		scanList = MkScanList(i, j)
+		for k in scanList:
 
-		# 	jsonList = MkJsonList(i, j, k)
+			jsonList = MkJsonList(i, j, k)
 			# print(jsonList)
 
-			# row_dict = {'src_subject_id': i, 'image_file': k}
-			# append_dict_as_row(outFile, row_dict, ndaColumns)
 
 
-			# bashCommand = "afni -ver"
-			# process = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
-			# output, error = process.communicate()
-			# print(output)
+			### To Do: write this for each file in jsonList
+
+
+
+			row_dict = {
+			'src_subject_id': i, 
+			'interview_date': dicomHead.AcquisitionDate, 
+			'sex': dicomHead[0x10,0x40].value,
+			'image_file': k
+			}
+
+			append_dict_as_row(outFile, row_dict, ndaColumns)
+			print(row_dict)
+
 
 		# clean unpacked tar ball
 		# shutil.rmtree(os.path.join(outDir, "scratch"))
