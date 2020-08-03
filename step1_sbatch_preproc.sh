@@ -31,22 +31,22 @@
 
 
 
-subj=$1
-sess=$2
+subj=sub-4002
+sess=ses-S1
 
-module unload gcc/7.1.0
-module load gcc-8.2.0-gcc-4.8.5-sxbf4jq
-module load python-3.7.0-gcc-8.2.0-joh2xyk
-module load R/3.4.3
-module load afni/openmp
+# module unload gcc/7.1.0
+# module load gcc-8.2.0-gcc-4.8.5-sxbf4jq
+# module load python-3.7.0-gcc-8.2.0-joh2xyk
+# module load R/3.4.3
+# module load afni/openmp
 
 
 ###??? update these
-parDir=~/compute/ChenTest
+parDir=/home/nate/Projects/ChenTest
 workDir=${parDir}/derivatives/${subj}/$sess
-dataDir=/home/data/madlab/McMakin_EMUR01/dset/${subj}/$sess
+dataDir=${parDir}/dset/${subj}/$sess
 
-tempDir=~/bin/Templates/vold2_mni
+tempDir=${parDir}/vold2_mni
 template=${tempDir}/vold2_mni_brain+tlrc
 priorDir=${tempDir}/priors_ACT
 
