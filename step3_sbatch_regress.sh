@@ -38,30 +38,30 @@
 
 
 
-module unload gcc/7.1.0
-module load gcc-8.2.0-gcc-4.8.5-sxbf4jq
-module load python-3.7.0-gcc-8.2.0-joh2xyk
-module load R/3.4.3
-module load afni/openmp
-module load c3d/1.0.0
+# module unload gcc/7.1.0
+# module load gcc-8.2.0-gcc-4.8.5-sxbf4jq
+# module load python-3.7.0-gcc-8.2.0-joh2xyk
+# module load R/3.4.3
+# module load afni/openmp
+# module load c3d/1.0.0
 
 
 
-subj=$1
-sess=$2
+subj=sub-4002
+sess=ses-S1
 
 
 ### --- Experimenter input --- ###
 #
 # Change parameters for your study in this section.
 
-parDir=~/compute/ChenTest				  			# parent dir, where derivatives is located
+parDir=/home/nate/Projects/ChenTest				  			# parent dir, where derivatives is located
 workDir=${parDir}/derivatives/${subj}/$sess
-priorDir=~/bin/Templates/vold2_mni/priors_JLF
+priorDir=${parDir}/vold2_mni/priors_JLF
 
 deconNum=(1)													# See Note 4 above
 deconPref=(study)												# array of prefix for each planned decon (length must equal sum of $deconNum)
-runDecons=0														# toggle for running reml scripts and post hoc (1=on) or just writing scripts (0)
+runDecons=1														# toggle for running reml scripts and post hoc (1=on) or just writing scripts (0)
 
 
 # Update for ROI
@@ -180,7 +180,7 @@ GenDecon (){
     -num_stimts $h_nstim \
     $stimBase \
     $stimBeh \
-    -jobs 1 \
+    -jobs 4 \
     -x1D X.${h_out}.xmat.1D \
     -xjpeg X.${h_out}.jpg \
     -x1D_uncensored X.${h_out}.nocensor.xmat.1D \
@@ -246,7 +246,9 @@ c=0; count=0; while [ $c -lt $phaseLen ]; do
 		# extract mean time series of each ROI*run
 		> input.1D
 		for j in run-*${phase}_scale+tlrc.HEAD; do
-			3dmaskave -quiet -mask ${label}+tlrc ${j%.*} > ${j%_*}_${label}_AVG.1D
+			if [ ! -s ${j%_*}_${label}_AVG.1D ]; then
+				3dmaskave -quiet -mask ${label}+tlrc ${j%.*} > ${j%_*}_${label}_AVG.1D
+			fi
 			cat ${j%_*}_${label}_AVG.1D >> input.1D
 		done
 
@@ -307,10 +309,10 @@ c=0; count=0; while [ $c -lt $phaseLen ]; do
 
 	# all runs signal
 	countS=`1d_tool.py -infile censor_${phase}_combined.1D -show_trs_uncensored encoded`
-	if [ ! -f ${regArr[0]}_TSNR+tlrc.HEAD ]; then
-		3dTcat -prefix tmp_${phase}_all_runs run-*${phase}_scale+tlrc.HEAD
-		3dTstat -mean -prefix tmp_${phase}_allSignal tmp_${phase}_all_runs+tlrc"[${countS}]"
-	fi
+	# if [ ! -f ${regArr[0]}_TSNR+tlrc.HEAD ]; then
+	# 	3dTcat -prefix tmp_${phase}_all_runs run-*${phase}_scale+tlrc.HEAD
+	# 	3dTstat -mean -prefix tmp_${phase}_allSignal tmp_${phase}_all_runs+tlrc"[${countS}]"
+	# fi
 
 	# timeseries of eroded WM
 	if [ ! -f ${phase}_WMe_rall+tlrc.HEAD ]; then
@@ -324,51 +326,80 @@ c=0; count=0; while [ $c -lt $phaseLen ]; do
 		if [ $runDecons == 1 ]; then
 
 			# do REML
-			if [ ! -f ${j}_stats_REML+tlrc.HEAD ]; then
-				tcsh -x ${j}_stats.REML_cmd -dsort ${phase}_WMe_rall+tlrc
-			fi
+			# if [ ! -f ${j}_stats_REML+tlrc.HEAD ]; then
+			# 	tcsh -x ${j}_stats.REML_cmd -dsort ${phase}_WMe_rall+tlrc
+			# fi
 
-			# kill if REMl failed
-			if [ ! -f ${j}_stats_REML+tlrc.HEAD ]; then
+			# write, run a 1D REML script
+			echo "3dREMLfit -input input.1D\\' -matrix X.${j}.xmat.1D \
+			-Rbuck ${j}_stats_REML -Rvar ${j}_stats_REMLvar -Rerrts ${j}_errts_REML \
+			-GOFORIT -verb" > chenUpdate_${j}_cmd
+
+			tcsh -x chenUpdate_${j}_cmd
+
+			# make output txt (will be space-separated)
+			if [ -s ${j}_stats_REML.1D ]; then
+				printOut=chenUpdate_${j}_values.txt
+				> $printOut
+
+				colHold=`sed -n 8p ${j}_stats_REML.1D`
+				colTmp=${colHold#*\"}; colClean=${colTmp%?}
+				colOut=`echo $colClean | sed -e "s/;/\t/g"`
+
+				# valHold=`sed -n 10p ${j}_stats_REML.1D`
+				valOut=`sed -n 10p ${j}_stats_REML.1D | sed -s "s/ \+ /\t/g"`
+				echo $colOut >> $printOut
+				echo $valOut >> $printOut
+			else
 				echo "" >&2
-				echo "REML failed on $j probably due to behavioral timing file issues ... Exit 5" >&2
+				echo "Problem with REML cmd script. No output detected. Exit 5." >&2
 				echo "" >&2
 				exit 5
 			fi
 
-			# calc SNR, corr
-			if [ ! -f ${j}_TSNR+tlrc.HEAD ]; then
 
-				3dTstat -stdev -prefix tmp_${j}_allNoise ${j}_errts_REML+tlrc"[${countS}]"
 
-				3dcalc -a tmp_${phase}_allSignal+tlrc \
-				-b tmp_${j}_allNoise+tlrc \
-				-c full_mask+tlrc \
-				-expr 'c*a/b' -prefix ${j}_TSNR
+			# # kill if REMl failed
+			# if [ ! -f ${j}_stats_REML+tlrc.HEAD ]; then
+			# 	echo "" >&2
+			# 	echo "REML failed on $j probably due to behavioral timing file issues ... Exit 5" >&2
+			# 	echo "" >&2
+			# 	exit 5
+			# fi
 
-				3dTnorm -norm2 -prefix tmp_${j}_errts_unit ${j}_errts_REML+tlrc
-				3dmaskave -quiet -mask full_mask+tlrc tmp_${j}_errts_unit+tlrc > ${j}_gmean_errts_unit.1D
-				3dcalc -a tmp_${j}_errts_unit+tlrc -b ${j}_gmean_errts_unit.1D -expr 'a*b' -prefix tmp_${j}_DP
-				3dTstat -sum -prefix ${j}_corr_brain tmp_${j}_DP+tlrc
-			fi
+			# # calc SNR, corr
+			# if [ ! -f ${j}_TSNR+tlrc.HEAD ]; then
+
+			# 	3dTstat -stdev -prefix tmp_${j}_allNoise ${j}_errts_REML+tlrc"[${countS}]"
+
+			# 	3dcalc -a tmp_${phase}_allSignal+tlrc \
+			# 	-b tmp_${j}_allNoise+tlrc \
+			# 	-c full_mask+tlrc \
+			# 	-expr 'c*a/b' -prefix ${j}_TSNR
+
+			# 	3dTnorm -norm2 -prefix tmp_${j}_errts_unit ${j}_errts_REML+tlrc
+			# 	3dmaskave -quiet -mask full_mask+tlrc tmp_${j}_errts_unit+tlrc > ${j}_gmean_errts_unit.1D
+			# 	3dcalc -a tmp_${j}_errts_unit+tlrc -b ${j}_gmean_errts_unit.1D -expr 'a*b' -prefix tmp_${j}_DP
+			# 	3dTstat -sum -prefix ${j}_corr_brain tmp_${j}_DP+tlrc
+			# fi
 		fi
 
 		# detect pairwise cor
-		1d_tool.py -show_cormat_warnings -infile X.${j}.xmat.1D | tee out.${j}.cormat_warn.txt
+		# 1d_tool.py -show_cormat_warnings -infile X.${j}.xmat.1D | tee out.${j}.cormat_warn.txt
 	done
 	let c=$[$c+1]
 done
 
 
-for i in ${deconPref[@]}; do
+# for i in ${deconPref[@]}; do
 
-	# sum of regressors, stim only x-matrix
-	if [ ! -s X.${i}.stim.xmat.1D ]; then
-		reg_cols=`1d_tool.py -infile X.${i}.nocensor.xmat.1D -show_indices_interest`
-		3dTstat -sum -prefix ${i}_sum_ideal.1D X.${i}.nocensor.xmat.1D"[$reg_cols]"
-		1dcat X.${i}.nocensor.xmat.1D"[$reg_cols]" > X.${i}.stim.xmat.1D
-	fi
-done
+# 	# sum of regressors, stim only x-matrix
+# 	if [ ! -s X.${i}.stim.xmat.1D ]; then
+# 		reg_cols=`1d_tool.py -infile X.${i}.nocensor.xmat.1D -show_indices_interest`
+# 		3dTstat -sum -prefix ${i}_sum_ideal.1D X.${i}.nocensor.xmat.1D"[$reg_cols]"
+# 		1dcat X.${i}.nocensor.xmat.1D"[$reg_cols]" > X.${i}.stim.xmat.1D
+# 	fi
+# done
 
 
 #### --- Print out info, Clean --- ###
@@ -380,49 +411,49 @@ done
 
 
 # organize files for what gen*py needs
-3dcopy full_mask+tlrc full_mask.${subj}+tlrc
+# 3dcopy full_mask+tlrc full_mask.${subj}+tlrc
 
-if [ $runDecons == 1 ]; then
-	for i in ${phaseArr[@]}; do
-		cat outcount.run-*${i}.1D > outcount_all_${i}.1D
-		c=1; for j in run-*${i}*+orig.HEAD; do
-			prefix=${j%+*}
-			3dcopy ${j%.*} pb00.${subj}.r0${c}.tcat
-			3dcopy ${prefix}_volreg_clean+tlrc pb02.${subj}.r0${c}.volreg
-			let c=$[$c+1]
-		done
+# if [ $runDecons == 1 ]; then
+# 	for i in ${phaseArr[@]}; do
+# 		cat outcount.run-*${i}.1D > outcount_all_${i}.1D
+# 		c=1; for j in run-*${i}*+orig.HEAD; do
+# 			prefix=${j%+*}
+# 			3dcopy ${j%.*} pb00.${subj}.r0${c}.tcat
+# 			3dcopy ${prefix}_volreg_clean+tlrc pb02.${subj}.r0${c}.volreg
+# 			let c=$[$c+1]
+# 		done
 
-		for k in ${deconPref[@]}; do
+# 		for k in ${deconPref[@]}; do
 
-			# a touch more organization (gen*py is very needy)
-			dset=${k}_stats_REML+tlrc
-			cp X.${k}.xmat.1D X.xmat.1D
-			3dcopy ${k}_errts_REML+tlrc errts.${subj}+tlrc
+# 			# a touch more organization (gen*py is very needy)
+# 			dset=${k}_stats_REML+tlrc
+# 			cp X.${k}.xmat.1D X.xmat.1D
+# 			3dcopy ${k}_errts_REML+tlrc errts.${subj}+tlrc
 
-			# generate script
-			gen_ss_review_scripts.py \
-			-subj ${subj} \
-			-rm_trs 0 \
-			-motion_dset dfile_rall_${i}.1D \
-			-outlier_dset outcount_all_${i}.1D \
-			-enorm_dset  motion_${i}_enorm.1D \
-			-mot_limit 0.3 \
-			-out_limit 0.1 \
-			-xmat_regress X.${k}.xmat.1D \
-			-xmat_uncensored X.${k}.nocensor.xmat.1D \
-			-stats_dset ${dset} \
-			-final_anat final_anat+tlrc \
-			-final_view tlrc \
-			-exit0
+# 			# generate script
+# 			gen_ss_review_scripts.py \
+# 			-subj ${subj} \
+# 			-rm_trs 0 \
+# 			-motion_dset dfile_rall_${i}.1D \
+# 			-outlier_dset outcount_all_${i}.1D \
+# 			-enorm_dset  motion_${i}_enorm.1D \
+# 			-mot_limit 0.3 \
+# 			-out_limit 0.1 \
+# 			-xmat_regress X.${k}.xmat.1D \
+# 			-xmat_uncensored X.${k}.nocensor.xmat.1D \
+# 			-stats_dset ${dset} \
+# 			-final_anat final_anat+tlrc \
+# 			-final_view tlrc \
+# 			-exit0
 
-			# run script - write an output for e/analysis
-			./\@ss_review_basic | tee out_summary_${k}.txt
+# 			# run script - write an output for e/analysis
+# 			./\@ss_review_basic | tee out_summary_${k}.txt
 
-			# clean
-			rm errts.*
-			rm X.xmat.1D
-			rm pb0*
-			rm *ss_review*
-		done
-	done
-fi
+# 			# clean
+# 			rm errts.*
+# 			rm X.xmat.1D
+# 			rm pb0*
+# 			rm *ss_review*
+# 		done
+# 	done
+# fi
