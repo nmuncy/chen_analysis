@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #SBATCH --time=30:00:00   # walltime
-#SBATCH --ntasks=1   # number of processor cores (i.e. tasks)
+#SBATCH --ntasks=6   # number of processor cores (i.e. tasks)
 #SBATCH --nodes=1   # number of nodes
 #SBATCH --mem-per-cpu=8gb   # memory per CPU core
 #SBATCH -J "TS1"   # job name
@@ -31,30 +31,31 @@
 
 
 
-subj=sub-4002
-sess=ses-S1
+subj=$1
+sess=$2
 
 # module unload gcc/7.1.0
 # module load gcc-8.2.0-gcc-4.8.5-sxbf4jq
-# module load python-3.7.0-gcc-8.2.0-joh2xyk
+# module load c3d/1.0.0
+# module load gsl-2.5-gcc-8.2.0-zi2ov24
+# module load python/2.7.5
 # module load R/3.4.3
-# module load afni/openmp
+# module load afni-20.1.00
 
 
 ###??? update these
-parDir=/home/nate/Projects/ChenTest
+parDir=~/compute/ChenTest
 workDir=${parDir}/derivatives/${subj}/$sess
-dataDir=${parDir}/dset/${subj}/$sess
+dataDir=/home/data/madlab/McMakin_EMUR01/dset/${subj}/$sess
 
-tempDir=${parDir}/vold2_mni
+tempDir=~/bin/Templates/vold2_mni
 template=${tempDir}/vold2_mni_brain+tlrc
 priorDir=${tempDir}/priors_ACT
 
-blip=0										# blip toggle (1=on)
+blip=1										# blip toggle (1=on), for fmap correction
 
-phaseArr=(study)							# Each PHASE of experiment, in order (TEST1 precedes TEST2 but followed STUDY). This is absolutely necessary - so put something here
-blockArr=(2)   								# number of blocks (runs) in each phase. E.g. STUDY had 1 block, TEST1 had 2 blocks. INTEGER!
-phaseLen=${#phaseArr[@]}
+phaseArr=(study)							# Each PHASE of experiment within same session (e.g. study, test)
+blockArr=(2)   								# number of blocks (runs) in each Phase. Integer. Length of blockArr must == phaseArr
 
 
 
@@ -62,56 +63,37 @@ phaseLen=${#phaseArr[@]}
 ### --- Set up --- ###
 #
 # Copies data to derivative $workDir, determines number
-# of EPI runs ($block, $numRuns).
+# 	of EPI runs ($block, $numRuns).
 # Blocks are named according to their phase
 
 
 ### Checks
 # check set up
-cd ${dataDir}/func
+# cd ${dataDir}/func
 
-if [ ${#phaseArr[@]} != ${#blockArr[@]} ]; then
-	echo "$phaseArr and $blockArr are not same length. Exit 1" >&2
-	exit 1
-fi
-
-
-# check blocks, names
-for i in ${blockArr[@]}; do
-	let totBlock+=$i
-done
-
-runCount=`ls *run*.nii.gz | wc -l`
-# if [ $runCount != $totBlock ]; then
-# 	echo "Sum of $blockArr and number of runs are not equal. Exit 2" >&2
-# 	exit 2
+# if [ ${#phaseArr[@]} != ${#blockArr[@]} ]; then
+# 	echo "$phaseArr and $blockArr are not same length. Exit 1" >&2
+# 	exit 1
 # fi
 
-# check blips
-cd ${dataDir}/fmap
+# # check blocks, names
+# for i in ${blockArr[@]}; do
+# 	let totBlock+=$i
+# done
 
-if [ $blip == 1 ]; then
-	blipCount=`ls *epi.nii.gz | wc -l`
-	if [ $blipCount != $phaseLen ]; then
-		echo "Number of blips != number of phases. Exit 3" >&2
-		exit 3
-	fi
-fi
-
+# runCount=`ls *run*.nii.gz | wc -l`
 
 
 ### Copy data
-# 3dcopy/rename epi data according to phase membership, determine number of blocks and set block arr
+# 3dcopy/rename epi data according to phase membership, 
+#	determine number of blocks and set block arr
+phaseLen=${#phaseArr[@]}
+
 cd ${dataDir}/func
+c=0; for i in ${subj}_${sess}_*run*.nii.gz; do
 
-c=0; for i in *study_run*.nii.gz; do
-
-
-
-	### Updated to account for rest data, clean up later
+	# EMU update: exclude resting state
 	if [[ $i != *task-rest* ]]; then
-
-
 
 		tmp=${i%_bold*}
 		run=${tmp##*_}
@@ -134,12 +116,7 @@ c=0; for i in *study_run*.nii.gz; do
 	fi
 done
 
-
-
-### Hard coded here
-
-# numRuns=${#block[@]}
-numRuns=2
+numRuns=${#block[@]}
 
 
 
@@ -148,13 +125,37 @@ numRuns=2
 cd ${dataDir}/fmap
 
 if [ $blip == 1 ]; then
-	for((i=1; i<=$blipCount; i++)); do
-		if [ ! -f ${workDir}/phase${i}_Blip+orig.HEAD ]; then
-			3dcopy *run-${i}_epi.nii.gz ${workDir}/phase${i}_Blip+orig
+
+	# for((i=1; i<=$blipCount; i++)); do
+	# 	if [ ! -f ${workDir}/phase${i}_Blip+orig.HEAD ]; then
+	# 		3dcopy *run-${i}_epi.nii.gz ${workDir}/phase${i}_Blip+orig
+	# 	fi
+	# done
+
+
+	# Updated for EMU
+	numBlip=`ls ${subj}_${sess}_*PA*.nii.gz | wc -l`
+
+	if [ $numBlip != $numRuns ]; then
+		echo "" >&2
+		echo "Number of PA FMAPs != to session runs. Exiting." >&2
+		echo "" >&2; exit 1
+	fi
+
+	c=1; for i in ${subj}_${sess}_*PA*.nii.gz; do
+		if [ ! -f ${workDir}/fmap_run-${c}+orig.HEAD ]; then
+			3dcopy $i ${workDir}/fmap_run-${c}+orig
 		fi
+		let c+=1
 	done
 fi
 
+
+
+
+### TODO: update to account for domain problems
+#		resulting from having one T1 for two different
+#		scanning sessions
 
 # get t1 data
 cd ${dataDir}/anat
@@ -177,65 +178,108 @@ cd $workDir
 
 if [ $blip == 1 ]; then
 	if [ ! -f run-1_${phaseArr[0]}_blip+orig.HEAD ]; then
+
+		### EMU update: account for blip for each run (rather than phase)
 		for a in ${!phaseArr[@]}; do
 
-			# median blip
-			num=$(($a+1))
-			phase=${phaseArr[$a]}
+			phaseNam=${phaseArr[$a]}
+			phaseNum=${blockArr[$a]}
 
-			3dTcat -prefix tmp_blip${num} phase${num}_Blip+orig
-			3dTstat -median -prefix tmp_blip${num}_med tmp_blip${num}+orig
-			3dAutomask -apply_prefix tmp_blip${num}_med_masked tmp_blip${num}_med+orig
+			for((num=1; num<=$phaseNum; num++)); do
+
+				## Calculate median value of fmap (blip)
+				# num=$(($a+1))
+				# phase=${phaseArr[$a]}
+
+				# 3dTcat -prefix tmp_blip${num} phase${num}_Blip+orig
+				# 3dTstat -median -prefix tmp_blip${num}_med tmp_blip${num}+orig
+				# 3dAutomask -apply_prefix tmp_blip${num}_med_masked tmp_blip${num}_med+orig
+
+				3dTcat -prefix tmp_blip-${num} fmap_run-${num}+orig			### is 3dTcat needed?
+				3dTstat -median -prefix tmp_blip-${num}_med tmp_blip-${num}+orig
+				3dAutomask -apply_prefix tmp_blip-${num}_med_masked tmp_blip-${num}_med+orig
 
 
-			# median task
-			unset tcat_input
-			for b in run-*${phase}+orig.HEAD; do
-				tcat_input+="${b%.*} "
+				## Calculate median value of task
+				# unset tcat_input
+				# for b in run-*${phase}+orig.HEAD; do
+				# 	tcat_input+="${b%.*} "
+				# done
+
+				# 3dTcat -prefix tmp_all${phase} $tcat_input
+				# 3dTstat -median -prefix tmp_all${phase}_med tmp_all${phase}+orig
+				# 3dAutomask -apply_prefix tmp_all${phase}_med_masked tmp_all${phase}_med+orig
+
+				3dTcat -prefix tmp_run-${num} run-${num}_${phaseNam}+orig			### is 3dTcat needed?
+				3dTstat -median -prefix tmp_run-${num}_med tmp_run-${num}+orig
+				3dAutomask -apply_prefix tmp_run-${num}_med_masked tmp_run-${num}_med+orig
+
+
+				## Calculate warp between blip, task
+				# 3dQwarp -plusminus -pmNAMES Rev Task \
+				# 	-pblur 0.05 0.05 -blur -1 -1 \
+				# 	-noweight -minpatch 9 \
+				# 	-source tmp_blip${num}_med_masked+orig \
+				# 	-base tmp_all${phase}_med_masked+orig \
+				# 	-prefix tmp_${phase}_warp
+
+				3dQwarp -plusminus -pmNAMES Rev Task \
+					-pblur 0.05 0.05 -blur -1 -1 \
+					-noweight -minpatch 9 \
+					-source tmp_blip-${num}_med_masked+orig \
+					-base tmp_run-${num}_med_masked+orig \
+					-prefix tmp_blip-${num}_warp
+
+
+				## Warp med, masks blip into task space, apply coord space
+				# 3dNwarpApply -quintic -nwarp tmp_${phase}_warp_Task_WARP+orig \
+				# 	-source tmp_all${phase}_med+orig \
+				# 	-prefix tmp_all${phase}_NWA
+
+				3dNwarpApply -quintic \
+					-nwarp tmp_blip-${num}_warp_Task_WARP+orig \
+					-source tmp_run-${num}_med+orig \
+					-prefix tmp_run-${num}_NWA
+
+				# 3drefit -atrcopy tmp_all${phase}+orig IJK_TO_DICOM_REAL tmp_all${phase}_NWA+orig
+				3drefit -atrcopy tmp_run-${num}+orig IJK_TO_DICOM_REAL tmp_run-${num}_NWA+orig
+
+
+				# 3dNwarpApply -quintic -nwarp tmp_${phase}_warp_Task_WARP+orig \
+				# 	-source tmp_all${phase}_med_masked+orig \
+				# 	-prefix tmp_all${phase}_med_Task_masked
+
+				3dNwarpApply -quintic \
+					-nwarp tmp_blip-${num}_warp_Task_WARP+orig \
+					-source tmp_run-${num}_med_masked+orig \
+					-prefix tmp_run-${num}_med_Task_masked			
+
+				# 3drefit -atrcopy tmp_all${phase}+orig IJK_TO_DICOM_REAL tmp_all${phase}_med_Task_masked+orig
+				3drefit -atrcopy tmp_run-${num}+orig IJK_TO_DICOM_REAL tmp_run-${num}_med_Task_masked+orig
+
+
+				# warp EPI
+				# for j in run-*_${phase}+orig.HEAD; do
+				# 	scan=${j%+*}
+				# 	if [ ! -f ${scan}_blip+orig.HEAD ]; then
+
+				# 		3dNwarpApply -quintic \
+				# 			-nwarp tmp_${phase}_warp_Task_WARP+orig \
+				# 			-source ${j%.*} \
+				# 			-prefix ${scan}_blip
+
+				# 		3drefit -atrcopy tmp_all${phase}+orig IJK_TO_DICOM_REAL ${scan}_blip+orig
+				# 	fi
+				# done
+
+				3dNwarpApply -quintic \
+					-nwarp tmp_blip-${num}_warp_Task_WARP+orig \
+					-source run-${num}_${phaseNam}+orig \
+					-prefix run-${num}_${phaseNam}_blip
+
+				3drefit -atrcopy tmp_run-${num}+orig IJK_TO_DICOM_REAL run-${num}_${phaseNam}_blip+orig
 			done
-
-			3dTcat -prefix tmp_all${phase} $tcat_input
-			3dTstat -median -prefix tmp_all${phase}_med tmp_all${phase}+orig
-			3dAutomask -apply_prefix tmp_all${phase}_med_masked tmp_all${phase}_med+orig
-
-
-			# compute midpoint
-			3dQwarp -plusminus -pmNAMES Rev Task \
-				-pblur 0.05 0.05 -blur -1 -1 \
-				-noweight -minpatch 9 \
-				-source tmp_blip${num}_med_masked+orig \
-				-base tmp_all${phase}_med_masked+orig \
-				-prefix tmp_${phase}_warp
-
-
-			# warp median dsets/masks
-			3dNwarpApply -quintic -nwarp tmp_${phase}_warp_Task_WARP+orig \
-				-source tmp_all${phase}_med+orig \
-				-prefix tmp_all${phase}_NWA
-
-			3drefit -atrcopy tmp_all${phase}+orig IJK_TO_DICOM_REAL tmp_all${phase}_NWA+orig
-
-			3dNwarpApply -quintic -nwarp tmp_${phase}_warp_Task_WARP+orig \
-				-source tmp_all${phase}_med_masked+orig \
-				-prefix tmp_all${phase}_med_Task_masked
-
-			3drefit -atrcopy tmp_all${phase}+orig IJK_TO_DICOM_REAL tmp_all${phase}_med_Task_masked+orig
-
-
-			# warp EPI
-			for j in run-*_${phase}+orig.HEAD; do
-
-				scan=${j%+*}
-				if [ ! -f ${scan}_blip+orig.HEAD ]; then
-
-					3dNwarpApply -quintic -nwarp tmp_${phase}_warp_Task_WARP+orig \
-						-source ${j%.*} \
-						-prefix ${scan}_blip
-
-					3drefit -atrcopy tmp_all${phase}+orig IJK_TO_DICOM_REAL ${scan}_blip+orig
-				fi
-			done
-			rm tmp_*
+			# rm tmp_*
 		done
 	fi
 fi
