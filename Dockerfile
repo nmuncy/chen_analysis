@@ -3,7 +3,8 @@ FROM ubuntu:20.04
 ARG DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && \
-	apt-get install -y --fix-missing tcsh xfonts-base libssl-dev       \
+	apt-get install -y --fix-missing tcsh \
+		xfonts-base libssl-dev       	  \
 	    python-is-python3                 \
 	    python3-matplotlib                \
 	    gsl-bin netpbm gnome-tweak-tool   \
@@ -22,16 +23,19 @@ RUN apt-get update && \
 	dpkg-reconfigure --frontend noninteractive tzdata && \
     curl -O https://afni.nimh.nih.gov/pub/dist/bin/misc/@update.afni.binaries && \
 	tcsh @update.afni.binaries -package linux_ubuntu_16_64 -do_extras && \
-	export PATH=$PATH:/root/abin/:/root/R && \
-	export R_LIBS=/root/R && \
+	mv /root/abin /opt && \
+	export PATH=$PATH:/opt/abin:/bin/R && \
+	export R_LIBS=/opt/R && \
 	mkdir  $R_LIBS && \
-	echo  'setenv R_LIBS /root/R'     >> ~/.cshrc && \
-	echo  'export R_LIBS=/root/R' >> ~/.bashrc && \
+	echo  'setenv R_LIBS /opt/R'     >> ~/.cshrc && \
+	echo  'export R_LIBS=/opt/R' >> ~/.bashrc && \
 	rPkgsInstall -pkgs ALL && \
 	apt-get update && \
-	apt-get install -y libv8-dev && \
+	apt-get install -y --fix-missing libv8-dev && \
 	rPkgsInstall -pkgs brms && \
-	@update.afni.binaries -d
+	mkdir /opt/c3d && \
+	curl -fsSL --retry 5 https://sourceforge.net/projects/c3d/files/c3d/1.0.0/c3d-1.0.0-Linux-x86_64.tar.gz/download \
+	| tar -xz -C /opt/c3d --strip-components 1
 
-ENV PATH=$PATH:/root/abin:/root/R
-ENV R_LIBS=/root/R
+ENV PATH=$PATH:/opt/abin:/opt/R:/opt/c3d
+ENV R_LIBS=/opt/R
