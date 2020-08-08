@@ -33,9 +33,11 @@ RUN apt-get update && \
 	apt-get update && \
 	apt-get install -y --fix-missing libv8-dev && \
 	rPkgsInstall -pkgs brms && \
-	mkdir /opt/c3d && \
-	curl -fsSL --retry 5 https://sourceforge.net/projects/c3d/files/c3d/1.0.0/c3d-1.0.0-Linux-x86_64.tar.gz/download \
-	| tar -xz -C /opt/c3d --strip-components 1
+	curl -O https://afni.nimh.nih.gov/pub/dist/edu/data/CD.tgz && \
+	tar xvzf CD.tgz && \
+	cd CD && \
+	tcsh s2.cp.files . ~
+
 
 ENV PATH=$PATH:/opt/abin:/opt/R:/opt/c3d
 ENV R_LIBS=/opt/R
