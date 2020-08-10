@@ -1,19 +1,12 @@
 #!/bin/bash
 
 #SBATCH --time=01:00:00   # walltime
-#SBATCH --ntasks=1   # number of processor cores (i.e. tasks)
+#SBATCH --ntasks=6   # number of processor cores (i.e. tasks)
 #SBATCH --nodes=1   # number of nodes
-#SBATCH --mem-per-cpu=8gb   # memory per CPU core
+#SBATCH --mem-per-cpu=4gb   # memory per CPU core
 #SBATCH -J "TS3"   # job name
-#SBATCH --partition IB_44C_512G
+#SBATCH --partition centos7_IB_44C_512G
 #SBATCH --account iacc_madlab
-
-# #SBATCH --qos pq_madlab
-# #SBATCH -o /scratch/madlab/crash/rtv_temp2epi_o
-# #SBATCH -e /scratch/madlab/crash/rtv_temp2epi_e
-
-
-
 
 
 # Written by Nathan Muncy on 10/24/18
@@ -38,47 +31,36 @@
 
 
 
-# module unload gcc/7.1.0
-# module load gcc-8.2.0-gcc-4.8.5-sxbf4jq
-# module load python-3.7.0-gcc-8.2.0-joh2xyk
-# module load R/3.4.3
-# module load afni/openmp
-# module load c3d/1.0.0
+
+module load afni-20.2.06
+module load c3d/1.0.0
 
 
 
-subj=sub-4002
-sess=ses-S1
+subj=$1
+sess=$2
 
 
 ### --- Experimenter input --- ###
 #
 # Change parameters for your study in this section.
 
-parDir=/home/nate/Projects/ChenTest				  			# parent dir, where derivatives is located
+parDir=/scratch/madlab/chen_test					  			# parent dir, where derivatives is located
 workDir=${parDir}/derivatives/${subj}/$sess
-priorDir=${parDir}/vold2_mni/priors_JLF
+priorDir=~/bin/Templates/vold2_mni/priors_JLF
 
 deconNum=(1)													# See Note 4 above
 deconPref=(study)												# array of prefix for each planned decon (length must equal sum of $deconNum)
-runDecons=1														# toggle for running reml scripts and post hoc (1=on) or just writing scripts (0)
 
+runDecons=1														# toggle for running reml scripts and post hoc (1=on) or just writing scripts (0)
+runClean=$3														# toggle to clean (1=on) intermediates
 
 # Update for ROI
 priorNum=(0018)
 priorNam=(LAmyg)
 
 
-# patch - set up txt and nam arrays
-cd ${workDir}/timing_files
 
-unset txtstudy namstudy
-txtArr=(`ls -1v *txt`)
-c=0; for i in ${txtArr[@]}; do
-	txtstudy[$c]=$i
-	namstudy[$c]=${i%.*}
-	let c+=1
-done
 
 
 
@@ -89,8 +71,20 @@ done
 # then set these as arrays. Set up decon arrays.
 # Function for writing decon script.
 
-cd $workDir
 
+# patch - set up txt and nam arrays
+cd ${workDir}/timing_files
+unset txtstudy namstudy
+txtArr=(`ls -1v *txt`)
+c=0; for i in ${txtArr[@]}; do
+	txtstudy[$c]=$i
+	namstudy[$c]=${i%.*}
+	let c+=1
+done
+
+
+
+cd $workDir
 > tmp.txt
 for i in run*scale+tlrc.HEAD; do
 	tmp=${i%_*}
@@ -123,19 +117,8 @@ GenDecon (){
 	local h_out=$5
 	local h_len=$6
 
-	# local h_phase=$1
-	# local h_block=$2
-	# local h_input=$3
-	# local h_out=$4
-	# local h_len=$5
-
-    # for aa in {1..5}; do
-	   #  shift
-    # done
-
     # extract nested arrays
     shift 6
-    # shift 5
     local h_arr=( "$@" )
     local nam=(${h_arr[@]:0:$h_len})
     local txt=(${h_arr[@]:$h_len})
@@ -154,15 +137,8 @@ GenDecon (){
 
 	# build behavior list
 	unset stimBeh
-	> X.stimBeh.txt ### for trouble shooting
 	cc=0; while [ $cc -lt ${#txt[@]} ]; do
 		stimBeh+="-stim_times_AM1 $x timing_files/${txt[$cc]} \"dmBLOCK(1)\" -stim_label $x ${nam[$cc]} "
-		# stimBeh+="-stim_times_AM1 $x timing_files/${txt[$cc]} \"dmBLOCK(1)\" -stim_label $x beh_${nam[$cc]} "
-
-		# for trouble shooting
-		echo "$cc: -stim_times_AM1 $x timing_files/${txt[$cc]} \"dmBLOCK(1)\" -stim_label $x ${nam[$cc]} " >> X.stimBeh.txt
-		cat timing_files/${txt[$cc]} >> X.stimBeh.txt
-
 		let x=$[$x+1]
 		let cc=$[$cc+1]
 	done
@@ -180,7 +156,7 @@ GenDecon (){
     -num_stimts $h_nstim \
     $stimBase \
     $stimBeh \
-    -jobs 4 \
+    -jobs 6 \
     -x1D X.${h_out}.xmat.1D \
     -xjpeg X.${h_out}.jpg \
     -x1D_uncensored X.${h_out}.nocensor.xmat.1D \
@@ -254,11 +230,6 @@ c=0; count=0; while [ $c -lt $phaseLen ]; do
 
 		# determine TR duration (for 1D file), use last iteration of j loop above
 		holdTR=`3dinfo -tr ${j%.*}`
-
-		# unset input
-		# for j in run-*${phase}_scale+tlrc.HEAD; do
-		# 	input+="${j%.*} "
-		# done
 		input=input.1D 			### just to keep things consistent
 
 		# loop through planned decons
@@ -272,7 +243,6 @@ c=0; count=0; while [ $c -lt $phaseLen ]; do
 
 			# write script
 			GenDecon $holdTR $phase ${blockArr[$c]} "$input" $out ${#holdName[@]} ${holdName[@]} $holdTxt
-			# GenDecon $phase ${blockArr[$c]} "$input" $out ${#holdName[@]} ${holdName[@]} $holdTxt
 
 			# run script, to generate reml_cmd script and matrices
 			if [ -f ${out}_stats.REML_cmd ]; then
@@ -307,38 +277,24 @@ c=0; count=0; while [ $c -lt $phaseLen ]; do
 		let count=$[$count+1]
 	done
 
-	# all runs signal
-	countS=`1d_tool.py -infile censor_${phase}_combined.1D -show_trs_uncensored encoded`
-	# if [ ! -f ${regArr[0]}_TSNR+tlrc.HEAD ]; then
-	# 	3dTcat -prefix tmp_${phase}_all_runs run-*${phase}_scale+tlrc.HEAD
-	# 	3dTstat -mean -prefix tmp_${phase}_allSignal tmp_${phase}_all_runs+tlrc"[${countS}]"
-	# fi
-
-	# timeseries of eroded WM
-	if [ ! -f ${phase}_WMe_rall+tlrc.HEAD ]; then
-		3dTcat -prefix tmp_allRuns_${phase} run-*${phase}_volreg_clean+tlrc.HEAD
-		3dcalc -a tmp_allRuns_${phase}+tlrc -b final_mask_WM_eroded+tlrc -expr "a*bool(b)" -datum float -prefix tmp_allRuns_${phase}_WMe
-		3dmerge -1blur_fwhm 20 -doall -prefix ${phase}_WMe_rall tmp_allRuns_${phase}_WMe+tlrc
-	fi
 
 	# loop thorugh planned decons
 	for j in ${regArr[@]}; do
 		if [ $runDecons == 1 ]; then
-
-			# do REML
-			# if [ ! -f ${j}_stats_REML+tlrc.HEAD ]; then
-			# 	tcsh -x ${j}_stats.REML_cmd -dsort ${phase}_WMe_rall+tlrc
-			# fi
 
 			# write, run a 1D REML script
 			echo "3dREMLfit -input input.1D\\' -matrix X.${j}.xmat.1D \
 			-Rbuck ${j}_stats_REML -Rvar ${j}_stats_REMLvar -Rerrts ${j}_errts_REML \
 			-GOFORIT -verb" > chenUpdate_${j}_cmd
 
-			tcsh -x chenUpdate_${j}_cmd
+			if [ ! -s ${j}_stats_REML.1D ]; then
+				tcsh -x chenUpdate_${j}_cmd
+			fi
+
 
 			# make output txt (will be space-separated)
 			if [ -s ${j}_stats_REML.1D ]; then
+
 				printOut=chenUpdate_${j}_values.txt
 				> $printOut
 
@@ -356,104 +312,35 @@ c=0; count=0; while [ $c -lt $phaseLen ]; do
 				echo "" >&2
 				exit 5
 			fi
-
-
-
-			# # kill if REMl failed
-			# if [ ! -f ${j}_stats_REML+tlrc.HEAD ]; then
-			# 	echo "" >&2
-			# 	echo "REML failed on $j probably due to behavioral timing file issues ... Exit 5" >&2
-			# 	echo "" >&2
-			# 	exit 5
-			# fi
-
-			# # calc SNR, corr
-			# if [ ! -f ${j}_TSNR+tlrc.HEAD ]; then
-
-			# 	3dTstat -stdev -prefix tmp_${j}_allNoise ${j}_errts_REML+tlrc"[${countS}]"
-
-			# 	3dcalc -a tmp_${phase}_allSignal+tlrc \
-			# 	-b tmp_${j}_allNoise+tlrc \
-			# 	-c full_mask+tlrc \
-			# 	-expr 'c*a/b' -prefix ${j}_TSNR
-
-			# 	3dTnorm -norm2 -prefix tmp_${j}_errts_unit ${j}_errts_REML+tlrc
-			# 	3dmaskave -quiet -mask full_mask+tlrc tmp_${j}_errts_unit+tlrc > ${j}_gmean_errts_unit.1D
-			# 	3dcalc -a tmp_${j}_errts_unit+tlrc -b ${j}_gmean_errts_unit.1D -expr 'a*b' -prefix tmp_${j}_DP
-			# 	3dTstat -sum -prefix ${j}_corr_brain tmp_${j}_DP+tlrc
-			# fi
 		fi
 
 		# detect pairwise cor
-		# 1d_tool.py -show_cormat_warnings -infile X.${j}.xmat.1D | tee out.${j}.cormat_warn.txt
+		1d_tool.py -show_cormat_warnings -infile X.${j}.xmat.1D | tee out.${j}.cormat_warn.txt
 	done
 	let c=$[$c+1]
 done
 
 
-# for i in ${deconPref[@]}; do
-
-# 	# sum of regressors, stim only x-matrix
-# 	if [ ! -s X.${i}.stim.xmat.1D ]; then
-# 		reg_cols=`1d_tool.py -infile X.${i}.nocensor.xmat.1D -show_indices_interest`
-# 		3dTstat -sum -prefix ${i}_sum_ideal.1D X.${i}.nocensor.xmat.1D"[$reg_cols]"
-# 		1dcat X.${i}.nocensor.xmat.1D"[$reg_cols]" > X.${i}.stim.xmat.1D
-# 	fi
-# done
-
-
-#### --- Print out info, Clean --- ###
-#
-# Print out information about the data - of particulatr interest
-# is the number of TRs censored, which steps3-5 use. This involves
-# producing the needed files, generating a set of review scripts,
-# and then running my favorite. Many intermediates get removed.
-
-
-# organize files for what gen*py needs
-# 3dcopy full_mask+tlrc full_mask.${subj}+tlrc
-
-# if [ $runDecons == 1 ]; then
-# 	for i in ${phaseArr[@]}; do
-# 		cat outcount.run-*${i}.1D > outcount_all_${i}.1D
-# 		c=1; for j in run-*${i}*+orig.HEAD; do
-# 			prefix=${j%+*}
-# 			3dcopy ${j%.*} pb00.${subj}.r0${c}.tcat
-# 			3dcopy ${prefix}_volreg_clean+tlrc pb02.${subj}.r0${c}.volreg
-# 			let c=$[$c+1]
-# 		done
-
-# 		for k in ${deconPref[@]}; do
-
-# 			# a touch more organization (gen*py is very needy)
-# 			dset=${k}_stats_REML+tlrc
-# 			cp X.${k}.xmat.1D X.xmat.1D
-# 			3dcopy ${k}_errts_REML+tlrc errts.${subj}+tlrc
-
-# 			# generate script
-# 			gen_ss_review_scripts.py \
-# 			-subj ${subj} \
-# 			-rm_trs 0 \
-# 			-motion_dset dfile_rall_${i}.1D \
-# 			-outlier_dset outcount_all_${i}.1D \
-# 			-enorm_dset  motion_${i}_enorm.1D \
-# 			-mot_limit 0.3 \
-# 			-out_limit 0.1 \
-# 			-xmat_regress X.${k}.xmat.1D \
-# 			-xmat_uncensored X.${k}.nocensor.xmat.1D \
-# 			-stats_dset ${dset} \
-# 			-final_anat final_anat+tlrc \
-# 			-final_view tlrc \
-# 			-exit0
-
-# 			# run script - write an output for e/analysis
-# 			./\@ss_review_basic | tee out_summary_${k}.txt
-
-# 			# clean
-# 			rm errts.*
-# 			rm X.xmat.1D
-# 			rm pb0*
-# 			rm *ss_review*
-# 		done
-# 	done
-# fi
+if [ $runClean == 1 ]; then
+	rm tmp*
+	rm 3d*
+	rm anat*
+	rm -r awpy
+	rm dfile*
+	rm epi*
+	rm final*
+	rm full_mask*
+	rm label*
+	rm mask*
+	rm mat*
+	rm mot*
+	rm out*
+	rm phase*
+	rm run*epiExt*
+	rm run*volreg*
+	rm struct_al*
+	rm struct_ns+orig*
+	rm study_{errts,stats}*
+	rm study_WM*
+	rm Template*
+fi

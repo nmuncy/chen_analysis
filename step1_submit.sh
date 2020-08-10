@@ -18,7 +18,6 @@
 
 
 parDir=/scratch/madlab/chen_test  ###??? update this
-
 scriptDir=${parDir}/code/mri_pipeline
 workDir=${parDir}/derivatives
 
