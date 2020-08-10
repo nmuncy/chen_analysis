@@ -13,14 +13,18 @@
 # #SBATCH -e /scratch/madlab/crash/rtv_temp2epi_e
 
 
-module load R/3.4.3
+
+
+### Needs to be run on --partition IB_44C_512G
+
+
 
 subj=$1
 sess=$2
 
-parDir=~/compute/ChenTest
-workDir=${parDir}/derivatives/${subj}/ses-S${sess}
-scriptDir=${parDir}/code
+parDir=/scratch/madlab/chen_test
+workDir=${parDir}/derivatives/${subj}/$sess
+codeDir=${parDir}/code/mri_pipeline
 
 mkdir ${workDir}/timing_files
-Rscript ${scriptDir}/step2_timing.R $subj $sess
+Rscript ${codeDir}/step2_timing.R $subj $sess

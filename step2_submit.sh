@@ -1,18 +1,30 @@
 #!/bin/bash
 
 
-workDir=~/compute/ChenTest
-scriptDir=${workDir}/code
-slurmDir=${workDir}/derivatives/Slurm_out
+parDir=/scratch/madlab/chen_test  ###??? update this
+
+
+
+# check for emuR01_env
+hold=`c3d -version`
+if [[ -z $hold ]]; then
+	echo ""; 
+	echo "Please activate emuR01_env. Exiting ..."; 
+	echo ""; exit 1
+fi
+
+
+scriptDir=${parDir}/code/mri_pipeline
+workDir=${parDir}/derivatives
+slurmDir=${workDir}/Slurm_out
 time=`date '+%Y_%m_%d-%H_%M_%S'`
 outDir=${slurmDir}/TS2_${time}
 
 mkdir -p $outDir
 
-cd ${workDir}/derivatives
+cd $workDir
 for i in sub-*; do
-	# for j in 1 2; do
-	for j in 1; do
+	for j in ses-S1; do
 
 		sbatch \
 	    -o ${outDir}/output_TS2_${i}_${j}.txt \

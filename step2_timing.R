@@ -1,19 +1,19 @@
 
 
-# # Receive passed arguments
-# args <- commandArgs()
-# subj <- args[6]
-# sess <- paste0("ses-S",args[7])
-# 
-# # Orienting vars
-# rawDir <- paste0("/home/data/madlab/McMakin_EMUR01/dset/",subj,"/",sess,"/func/")
-# outDir <- paste0("~/compute/ChenTest/derivatives/",subj,"/",sess,"/timing_files/")
+# Receive passed arguments
+args <- commandArgs()
+subj <- args[6]
+sess <- args[7]
 
-# For local testing
-subj <- "sub-4002"
-sess <- "ses-S1"
-rawDir <- "/home/nate/Projects/ChenTest/dset/sub-4002/ses-S1/func/"
-outDir <- "/home/nate/Projects/ChenTest/derivatives/sub-4002/ses-S1/timing_files/"
+# Orienting vars
+rawDir <- paste0("/home/data/madlab/McMakin_EMUR01/dset/",subj,"/",sess,"/func/")
+outDir <- paste0("/scratch/madlab/chen_test/derivatives/",subj,"/",sess,"/timing_files/")
+
+# # For local testing
+# subj <- "sub-4002"
+# sess <- "ses-S1"
+# rawDir <- "/home/nate/Projects/ChenTest/dset/sub-4002/ses-S1/func/"
+# outDir <- "/home/nate/Projects/ChenTest/derivatives/sub-4002/ses-S1/timing_files/"
 
 
 # # for testing

@@ -1,44 +1,12 @@
 #!/bin/bash
 
-#SBATCH --time=15:00:00   # walltime
-#SBATCH --ntasks=4   # number of processor cores (i.e. tasks)
-#SBATCH --nodes=1   # number of nodes
-#SBATCH --mem-per-cpu=4gb   # memory per CPU core
-#SBATCH -J "TS1"   # job name
-#SBATCH --partition centos7_IB_44C_512G
-#SBATCH --account iacc_madlab
-
-# #SBATCH --qos pq_madlab
-# #SBATCH -o /scratch/madlab/crash/rtv_temp2epi_o
-# #SBATCH -e /scratch/madlab/crash/rtv_temp2epi_e
 
 
 
-# Written by Nathan Muncy on 10/24/18
-
-# --- Notes, in no particular order
-#
-# 1) will do first preproc steps - volreg, align, tshift, scale, mask construction
-#
-# 2) places needing researcher input are marked by "###??? update ..."
-#
-# 3) big steps are marked "### --- foobar --- ###", annotations with "#"
-#
-# 4) assumes dcm2niix/BIDS format
-#
-# 5) can accept blip scans (P->A), and should have one blip scan per phase
+subj=sub-4002
+sess=ses-S1
 
 
-module load afni-20.2.06
-module load c3d/1.0.0
-
-
-subj=$1
-sess=$2
-# codeDir=$3
-
-# afni_sif=/home/data/madlab/singularity-images/afni_madlab_2020-08-07.sif
-# ${codeDir}/step1_job.sh
 
 
 ###??? update these
@@ -55,6 +23,7 @@ blip=0										# blip toggle (1=on), for fmap correction
 phaseArr=(study)							# Each PHASE of experiment within same session (e.g. study, test)
 blockArr=(2)   								# number of blocks (runs) in each Phase. Integer. Length of blockArr must == phaseArr
 
+# afni_sif=/home/data/madlab/singularity-images/afni_madlab_2020-08-07.sif
 
 
 
@@ -553,49 +522,49 @@ fi
 #done
 
 
-# seg tissue class, with Atropos priors, for REML step
-if [ ! -f final_mask_GM_eroded+tlrc.HEAD ]; then
+# # seg tissue class, with Atropos priors, for REML step
+# if [ ! -f final_mask_GM_eroded+tlrc.HEAD ]; then
 
-	# get priors
-	tiss=(CSF GMc WM GMs)
-	prior=(Prior{1..4})
-	tissN=${#tiss[@]}
+# 	# get priors
+# 	tiss=(CSF GMc WM GMs)
+# 	prior=(Prior{1..4})
+# 	tissN=${#tiss[@]}
 
-	c=0; while [ $c -lt $tissN ]; do
-		cp ${priorDir}/${prior[$c]}.nii.gz ./tmp_${tiss[$c]}.nii.gz
-		let c=$[$c+1]
-	done
-	c3d tmp_GMc.nii.gz tmp_GMs.nii.gz -add -o tmp_GM.nii.gz
+# 	c=0; while [ $c -lt $tissN ]; do
+# 		cp ${priorDir}/${prior[$c]}.nii.gz ./tmp_${tiss[$c]}.nii.gz
+# 		let c=$[$c+1]
+# 	done
+# 	c3d tmp_GMc.nii.gz tmp_GMs.nii.gz -add -o tmp_GM.nii.gz
 
-	# resample, erode
-	for i in CSF GM WM; do
+# 	# resample, erode
+# 	for i in CSF GM WM; do
 
-		c3d tmp_${i}.nii.gz -thresh 0.3 1 1 0 -o tmp_${i}_bin.nii.gz
-		3dresample -master ${block[0]}_volreg_clean+tlrc -rmode NN -input tmp_${i}_bin.nii.gz -prefix final_mask_${i}+tlrc
-		3dmask_tool -input tmp_${i}_bin.nii.gz -dilate_input -1 -prefix tmp_mask_${i}_eroded
-		3dresample -master ${block[0]}_volreg_clean+tlrc -rmode NN -input tmp_mask_${i}_eroded+orig -prefix final_mask_${i}_eroded
-	done
-fi
-
-
+# 		c3d tmp_${i}.nii.gz -thresh 0.3 1 1 0 -o tmp_${i}_bin.nii.gz
+# 		3dresample -master ${block[0]}_volreg_clean+tlrc -rmode NN -input tmp_${i}_bin.nii.gz -prefix final_mask_${i}+tlrc
+# 		3dmask_tool -input tmp_${i}_bin.nii.gz -dilate_input -1 -prefix tmp_mask_${i}_eroded
+# 		3dresample -master ${block[0]}_volreg_clean+tlrc -rmode NN -input tmp_mask_${i}_eroded+orig -prefix final_mask_${i}_eroded
+# 	done
+# fi
 
 
 
-### --- Scale --- ###
-#
-# Data is scaled by mean signal - gotta reduce them confounds.
 
 
-for j in ${block[@]}; do
-	if [ ! -f ${j}_scale+tlrc.HEAD ]; then
+# ### --- Scale --- ###
+# #
+# # Data is scaled by mean signal - gotta reduce them confounds.
 
-		3dTstat -prefix tmp_tstat_$j ${j}_volreg_clean+tlrc
 
-		3dcalc \
-		-a ${j}_volreg_clean+tlrc \
-		-b tmp_tstat_${j}+tlrc \
-		-c ${j}_epiExt_mask+tlrc \
-		-expr 'c * min(200, a/b*100)*step(a)*step(b)' \
-		-prefix ${j}_scale
-	fi
-done
+# for j in ${block[@]}; do
+# 	if [ ! -f ${j}_scale+tlrc.HEAD ]; then
+
+# 		3dTstat -prefix tmp_tstat_$j ${j}_volreg_clean+tlrc
+
+# 		3dcalc \
+# 		-a ${j}_volreg_clean+tlrc \
+# 		-b tmp_tstat_${j}+tlrc \
+# 		-c ${j}_epiExt_mask+tlrc \
+# 		-expr 'c * min(200, a/b*100)*step(a)*step(b)' \
+# 		-prefix ${j}_scale
+# 	fi
+# done
