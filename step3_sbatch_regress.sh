@@ -330,25 +330,27 @@ done
 
 
 if [ $runClean == 1 ]; then
-	rm tmp*
-	rm 3d*
-	rm anat*
-	rm -r awpy
-	rm dfile*
-	rm epi*
-	rm final*
-	rm full_mask*
-	rm label*
-	rm mask*
-	rm mat*
-	rm mot*
-	rm out*
-	rm phase*
-	rm run*epiExt*
-	rm run*volreg*
-	rm struct_al*
-	rm struct_ns+orig*
-	rm study_{errts,stats}*
-	rm study_WM*
-	rm Template*
+	if [ -s chenUpdate_${deconPref[0]}_values.txt ]; then
+		rm tmp*
+		rm 3d*
+		rm anat*
+		rm -r awpy
+		rm dfile*
+		rm epi*
+		rm final*
+		rm full_mask*
+		rm label*
+		rm mask*
+		rm mat*
+		rm mot*
+		rm out*
+		rm phase*
+		rm run*epiExt*
+		rm run*volreg*
+		rm struct_al*
+		rm struct_ns+orig*
+		rm study_{errts,stats}*
+		rm study_WM*
+		rm Template*
+	fi
 fi
