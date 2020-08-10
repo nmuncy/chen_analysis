@@ -1,11 +1,14 @@
 #!/bin/bash
 
 
-parDir=/scratch/madlab/chen_test  ###??? update this
+
+
+###--- Notes:
+#
+# Make sure emuR01_env IS LOADED!
 
 
 
-# check for emuR01_env
 hold=`c3d -version`
 if [[ -z $hold ]]; then
 	echo ""; 
@@ -14,8 +17,9 @@ if [[ -z $hold ]]; then
 fi
 
 
+parDir=/home/data/madlab/McMakin_EMUR01  ###??? update this
 scriptDir=${parDir}/code/mri_pipeline
-workDir=${parDir}/derivatives
+workDir=${parDir}/derivatives/chen_update
 slurmDir=${workDir}/Slurm_out
 time=`date '+%Y_%m_%d-%H_%M_%S'`
 outDir=${slurmDir}/TS2_${time}

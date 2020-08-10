@@ -1,25 +1,17 @@
 #!/bin/bash
 
 
-# stderr and stdout are written to ${outDir}/error_* and ${outDir}/output_* for troubleshooting.
-# job submission output are time stamped for troubleshooting
+
+###--- Notes:
+#
+# This should be submitted from a clean environment 
+#	e.g. don't have emuR01_env active
 
 
 
-
-# # check for emuR01_env
-# hold=`c3d -version`
-# if [[ -z $hold ]]; then
-# 	echo ""; 
-# 	echo "please conda activate emuR01_env. exitting ..."; 
-# 	echo ""; exit 1
-# fi
-
-
-
-parDir=/scratch/madlab/chen_test  ###??? update this
+parDir=/home/data/madlab/McMakin_EMUR01  ###??? update this
 scriptDir=${parDir}/code/mri_pipeline
-workDir=${parDir}/derivatives
+workDir=${parDir}/derivatives/chen_update
 
 slurmDir=${workDir}/Slurm_out
 time=`date '+%Y_%m_%d-%H_%M_%S'`

@@ -10,6 +10,7 @@
 
 
 # Written by Nathan Muncy on 10/24/18
+#	Updated by Nathan Muncy on 8/10/2020
 
 
 ### --- Notes
@@ -28,6 +29,13 @@
 #			e.g. deconNum=(1 2 1) means one decon from first phase, two from second, etc.
 #		Note - A value must be entered for each phase, even if no decon is desired
 #			e.g. deconNum=(0 1 0) for one only decon from second phase, and no others
+#
+# Updates:
+#	1) adjusted decon, reml commands for EMU study
+#	2) decon for each trial (not condition)
+#	3) removed post-hoc checks
+#	4) desired output is chenUpdate_foo_values.txt
+#		this contains parameter estimates for each trial
 
 
 
@@ -45,8 +53,8 @@ sess=$2
 #
 # Change parameters for your study in this section.
 
-parDir=/scratch/madlab/chen_test					  			# parent dir, where derivatives is located
-workDir=${parDir}/derivatives/${subj}/$sess
+parDir=/home/data/madlab/McMakin_EMUR01					  			# parent dir, where derivatives is located
+workDir=${parDir}/derivatives/chen_update/${subj}/$sess
 priorDir=~/bin/Templates/vold2_mni/priors_JLF
 
 deconNum=(1)													# See Note 4 above

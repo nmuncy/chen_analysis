@@ -15,8 +15,11 @@
 
 
 # Written by Nathan Muncy on 10/24/18
+# 	Updated by Nathan Muncy on 8/10/2020 for EMU
 
-# --- Notes, in no particular order
+
+
+###--- Notes, in no particular order
 #
 # 1) will do first preproc steps - volreg, align, tshift, scale, mask construction
 #
@@ -26,7 +29,10 @@
 #
 # 4) assumes dcm2niix/BIDS format
 #
-# 5) can accept blip scans (P->A), and should have one blip scan per phase
+# 5) can accept blip scans (P->A)
+#
+# TODO: update for blip
+#		update for 1 t1w file only
 
 
 module load afni-20.2.06
@@ -35,16 +41,14 @@ module load c3d/1.0.0
 
 subj=$1
 sess=$2
-# codeDir=$3
 
-# afni_sif=/home/data/madlab/singularity-images/afni_madlab_2020-08-07.sif
-# ${codeDir}/step1_job.sh
+
 
 
 ###??? update these
-parDir=/scratch/madlab/chen_test
-workDir=${parDir}/derivatives/${subj}/$sess
-dataDir=/home/data/madlab/McMakin_EMUR01/dset/${subj}/$sess
+parDir=/home/data/madlab/McMakin_EMUR01
+workDir=${parDir}/derivatives/chen_update/${subj}/$sess
+dataDir=${parDir}/dset/${subj}/$sess
 
 tempDir=~/bin/Templates/vold2_mni
 template=${tempDir}/vold2_mni_brain+tlrc
@@ -65,29 +69,9 @@ blockArr=(2)   								# number of blocks (runs) in each Phase. Integer. Length 
 # 	of EPI runs ($block, $numRuns).
 # Blocks are named according to their phase
 
-
-### Checks
-# check set up
-# cd ${dataDir}/func
-
-# if [ ${#phaseArr[@]} != ${#blockArr[@]} ]; then
-# 	echo "$phaseArr and $blockArr are not same length. Exit 1" >&2
-# 	exit 1
-# fi
-
-# # check blocks, names
-# for i in ${blockArr[@]}; do
-# 	let totBlock+=$i
-# done
-
-# runCount=`ls *run*.nii.gz | wc -l`
-
-
-### Copy data
-# 3dcopy/rename epi data according to phase membership, 
-#	determine number of blocks and set block arr
 phaseLen=${#phaseArr[@]}
 
+# EPI data
 cd ${dataDir}/func
 c=0; for i in ${subj}_${sess}_*run*.nii.gz; do
 
@@ -118,23 +102,12 @@ done
 numRuns=${#block[@]}
 
 
-
-
-# blip data
+# fmap(blip) data
+#	update for EMU
 cd ${dataDir}/fmap
-
 if [ $blip == 1 ]; then
 
-	# for((i=1; i<=$blipCount; i++)); do
-	# 	if [ ! -f ${workDir}/phase${i}_Blip+orig.HEAD ]; then
-	# 		3dcopy *run-${i}_epi.nii.gz ${workDir}/phase${i}_Blip+orig
-	# 	fi
-	# done
-
-
-	# Updated for EMU
 	numBlip=`ls ${subj}_${sess}_*PA*.nii.gz | wc -l`
-
 	if [ $numBlip != $numRuns ]; then
 		echo "" >&2
 		echo "Number of PA FMAPs != to session runs. Exiting." >&2
@@ -174,7 +147,6 @@ fi
 
 
 cd $workDir
-
 if [ $blip == 1 ]; then
 	if [ ! -f run-1_${phaseArr[0]}_blip+orig.HEAD ]; then
 
@@ -282,7 +254,6 @@ if [ $blip == 1 ]; then
 		done
 	fi
 fi
-
 
 
 
@@ -539,21 +510,9 @@ if [ ! -f final_anat_mask+tlrc.HEAD ]; then
 fi
 
 
-### segment tissue class, generate masks
-
-## AFNI way
-#3dSeg -anat final_anat+tlrc -mask AUTO -classes 'CSF ; GM ; WM'
-
-#for j in CSF GM WM; do
-
-	#3dmask_tool -input Segsy/Classes+tlrc"<${j}>" -prefix tmp_mask_$j
-	#3dresample -master ${block[0]}_volreg_clean+tlrc -rmode NN -input tmp_mask_${j}+tlrc -prefix final_mask_${j}
-	#3dmask_tool -input Segsy/Classes+tlrc"<${j}>" -dilate_input -1 -prefix tmp_mask_${j}_eroded
-	#3dresample -master ${block[0]}_volreg_clean+tlrc -rmode NN -input tmp_mask_${j}_eroded+tlrc -prefix final_mask_${j}_eroded
-#done
-
-
 # seg tissue class, with Atropos priors, for REML step
+#	EMU update - this is now useless?
+
 if [ ! -f final_mask_GM_eroded+tlrc.HEAD ]; then
 
 	# get priors
@@ -576,7 +535,6 @@ if [ ! -f final_mask_GM_eroded+tlrc.HEAD ]; then
 		3dresample -master ${block[0]}_volreg_clean+tlrc -rmode NN -input tmp_mask_${i}_eroded+orig -prefix final_mask_${i}_eroded
 	done
 fi
-
 
 
 

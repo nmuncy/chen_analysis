@@ -2,9 +2,17 @@
 
 
 
-parDir=/scratch/madlab/chen_test  ###??? update this
+
+###--- Notes:
+#
+# Submit this from a clean environment (e.g. no emuR01_env)
+
+
+
+
+parDir=/home/data/madlab/McMakin_EMUR01  ###??? update this
 scriptDir=${parDir}/code/mri_pipeline
-workDir=${parDir}/derivatives
+workDir=${parDir}/derivatives/chen_update
 
 slurmDir=${workDir}/Slurm_out
 time=`date '+%Y_%m_%d-%H_%M_%S'`
@@ -15,7 +23,7 @@ mkdir -p $outDir
 cd $workDir
 for i in sub*; do
 	for j in ses-S1; do
-		if [ ! -f ${i}/${j}/study_stats_REML+tlrc.HEAD ]; then
+		if [ ! -s ${i}/${j}/chenUpdate_study_values.txt ]; then
 
 			# determine cleaning arg (don't clean for sub-4002)
 			[ $i != sub-4002 ]

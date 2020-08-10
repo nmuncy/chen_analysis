@@ -15,15 +15,19 @@
 
 
 
-### Needs to be run on --partition IB_44C_512G
+###--- Notes:
+#
+# Needs to be run on --partition IB_44C_512G
+#
+# This script submits the R script
 
 
 
 subj=$1
 sess=$2
 
-parDir=/scratch/madlab/chen_test
-workDir=${parDir}/derivatives/${subj}/$sess
+parDir=/home/data/madlab/McMakin_EMUR01
+workDir=${parDir}/derivatives/chen_update/${subj}/$sess
 codeDir=${parDir}/code/mri_pipeline
 
 mkdir ${workDir}/timing_files
