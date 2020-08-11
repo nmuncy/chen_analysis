@@ -53,8 +53,8 @@ sess=$2
 #
 # Change parameters for your study in this section.
 
-parDir=/home/data/madlab/McMakin_EMUR01					  			# parent dir, where derivatives is located
-workDir=${parDir}/derivatives/chen_update/${subj}/$sess
+parDir=/scratch/madlab/chen_update				  			# parent dir, where derivatives is located
+workDir=${parDir}/derivatives/${subj}/$sess
 priorDir=~/bin/Templates/vold2_mni/priors_JLF
 
 deconNum=(1)													# See Note 4 above

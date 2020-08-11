@@ -17,9 +17,9 @@ if [[ -z $hold ]]; then
 fi
 
 
-parDir=/home/data/madlab/McMakin_EMUR01  ###??? update this
-scriptDir=${parDir}/code/mri_pipeline
-workDir=${parDir}/derivatives/chen_update
+parDir=/scratch/madlab/chen_update  ###??? update this
+scriptDir=${parDir}/code
+workDir=${parDir}/derivatives
 slurmDir=${workDir}/Slurm_out
 time=`date '+%Y_%m_%d-%H_%M_%S'`
 outDir=${slurmDir}/TS2_${time}

@@ -46,9 +46,9 @@ sess=$2
 
 
 ###??? update these
-parDir=/home/data/madlab/McMakin_EMUR01
-workDir=${parDir}/derivatives/chen_update/${subj}/$sess
-dataDir=${parDir}/dset/${subj}/$sess
+parDir=/scratch/madlab/chen_update
+workDir=${parDir}/derivatives/${subj}/$sess
+dataDir=/home/data/madlab/McMakin_EMUR01/dset/${subj}/$sess
 
 tempDir=~/bin/Templates/vold2_mni
 template=${tempDir}/vold2_mni_brain+tlrc

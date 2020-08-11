@@ -26,9 +26,9 @@
 subj=$1
 sess=$2
 
-parDir=/home/data/madlab/McMakin_EMUR01
-workDir=${parDir}/derivatives/chen_update/${subj}/$sess
-codeDir=${parDir}/code/mri_pipeline
+parDir=/scratch/madlab/chen_update
+workDir=${parDir}/derivatives/${subj}/$sess
+codeDir=${parDir}/code
 
 mkdir ${workDir}/timing_files
 Rscript ${codeDir}/step2_timing.R $subj $sess

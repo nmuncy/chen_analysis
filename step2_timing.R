@@ -24,7 +24,7 @@ sess <- args[7]
 
 ### Orienting vars, update this
 rawDir <- paste0("/home/data/madlab/McMakin_EMUR01/dset/",subj,"/",sess,"/func/")
-outDir <- paste0("/home/data/madlab/McMakin_EMUR01/derivatives/chen_update/",subj,"/",sess,"/timing_files/")
+outDir <- paste0("/scratch/madlab/chen_update/derivatives/",subj,"/",sess,"/timing_files/")
 
 
 ### Start job
