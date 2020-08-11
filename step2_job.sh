@@ -26,9 +26,15 @@
 subj=$1
 sess=$2
 
+
+# set orienting vars
 parDir=/scratch/madlab/chen_update
 workDir=${parDir}/derivatives/${subj}/$sess
 codeDir=${parDir}/code
 
+# clean from failed runs, make output
+rm -r ${workDir}/timing_files
 mkdir ${workDir}/timing_files
+
+# run script
 Rscript ${codeDir}/step2_timing.R $subj $sess

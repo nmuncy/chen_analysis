@@ -5,7 +5,7 @@
 
 ###--- Notes:
 #
-# Make sure emuR01_env IS LOADED!
+# Make sure emuR01_env is loaded!
 
 
 
@@ -30,12 +30,20 @@ cd $workDir
 for i in sub-*; do
 	for j in ses-S1; do
 
-		sbatch \
-	    -o ${outDir}/output_TS2_${i}_${j}.txt \
-	    -e ${outDir}/error_TS2_${i}_${j}.txt \
-	    ${scriptDir}/step2_job.sh $i $j
+		# only submit if there are not enough timing files
+		#	e.g. when a previous submission failed
+		timeDir=${workDir}/${i}/${j}/timing_files
+		numTime=`ls $timeDir | wc -l`
+		
+		if [ ! -d $timeDir ] || [ $numTime < 100 ]; then
 
-		sleep 1
+			sbatch \
+		    -o ${outDir}/output_TS2_${i}_${j}.txt \
+		    -e ${outDir}/error_TS2_${i}_${j}.txt \
+		    ${scriptDir}/step2_job.sh $i $j
+
+			sleep 1
+		fi
 	done
 done
 
