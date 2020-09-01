@@ -62,7 +62,17 @@ for( i in h_ind_sub){
 
 # test - what should be the formula?
 data_neg <- filter(data_long, StimResp == "11" | StimResp == "12" | StimResp == "13")
-stat_neg <- lmer(Est ~ StimResp + (StimResp | Image), data_neg)
+data_neg$Est <- round(data_neg$Est, 4)
+
+hist(data_neg$Est[data_neg$Est<2 & data_neg$Est>-2])
+#stat_neg <- lmer(Est ~ StimResp + (StimResp | Image), data_neg)
+stat_neg <- lmer(Est ~ StimResp + (1 | Image) + (1|Subj), data_neg[data_neg$Est<2 & data_neg$Est>-2,])
+fixef(stat_neg)
+summary(stat_neg)
+ranef(stat_neg)
+
+hist(ranef(stat_neg)$Image[,1])
+hist(ranef(stat_neg)$Subj[,1])
 
 
 # # example
