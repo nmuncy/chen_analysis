@@ -187,11 +187,11 @@ c=0; while [ $c -lt $phaseLen ]; do
 
 	if [ ! -s censor_${phase}_combined.1D ]; then
 
-		# files: de-meaned, motion params (per phase)
+		# files: de-meaned, motion params (per phase) - updated for EMU (0.3 -> 1)
 		1d_tool.py -infile dfile_rall_${phase}.1D -set_nruns $nruns -demean -write motion_demean_${phase}.1D
 		1d_tool.py -infile dfile_rall_${phase}.1D -set_nruns $nruns -derivative -demean -write motion_deriv_${phase}.1D
 		1d_tool.py -infile motion_demean_${phase}.1D -set_nruns $nruns -split_into_pad_runs mot_demean_${phase}
-		1d_tool.py -infile dfile_rall_${phase}.1D -set_nruns $nruns -show_censor_count -censor_prev_TR -censor_motion 0.3 motion_${phase}
+		1d_tool.py -infile dfile_rall_${phase}.1D -set_nruns $nruns -show_censor_count -censor_prev_TR -censor_motion 1 motion_${phase}
 
 		# determine censor
 		cat out.cen.run-*${phase}.1D > outcount_censor_${phase}.1D

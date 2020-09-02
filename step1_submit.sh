@@ -10,7 +10,7 @@
 
 
 parDir=/scratch/madlab/chen_update  ###??? update this
-scriptDir=${parDir}/code
+scriptDir=~/compute/chen_analysis
 workDir=${parDir}/derivatives
 
 slurmDir=${workDir}/Slurm_out
@@ -30,7 +30,7 @@ for i in sub*; do
 		    sbatch \
 		    -o ${outDir}/output_TS1_${i}_${j}.txt \
 		    -e ${outDir}/error_TS1_${i}_${j}.txt \
-		    ${scriptDir}/step1_sbatch_preproc.sh $i $j $scriptDir
+		    ${scriptDir}/step1_sbatch_preproc.sh $i $j
 
 		    sleep 1
 		fi

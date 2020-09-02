@@ -5,7 +5,7 @@
 ###--- Notes:
 #
 # This script will set up necessary dir 
-# hiearchies for subsequent scripts
+# hierarchies for subsequent scripts
 
 
 dataDir=/home/data/madlab/McMakin_EMUR01/dset
@@ -13,7 +13,9 @@ workDir=/scratch/madlab/chen_update/derivatives
 
 cd $dataDir
 for i in sub-*; do
-	if [ -f ${i}/ses-S1/${i}_ses-S1_scans.tsv ]; then
-		mkdir -p ${workDir}/${i}/ses-S1
-	fi
+	for j in ses-S1; do
+		if [ -f ${i}/${j}/${i}_ses-S1_scans.tsv ]; then
+			mkdir -p ${workDir}/${i}/$j
+		fi
+	done
 done

@@ -31,8 +31,10 @@
 #
 # 5) can accept blip scans (P->A)
 #
+#
 # TODO: update for blip
 #		update for 1 t1w file only
+#		update for different template?
 
 
 module load afni-20.2.06
@@ -46,8 +48,7 @@ sess=$2
 
 
 ###??? update these
-parDir=/scratch/madlab/chen_update
-workDir=${parDir}/derivatives/${subj}/$sess
+workDir=/scratch/madlab/chen_update/derivatives/${subj}/$sess
 dataDir=/home/data/madlab/McMakin_EMUR01/dset/${subj}/$sess
 
 tempDir=~/bin/Templates/vold2_mni
