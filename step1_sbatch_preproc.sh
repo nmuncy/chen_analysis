@@ -32,9 +32,15 @@
 # 5) can accept blip scans (P->A)
 #
 #
+# Updates: 
+#	1) Changed count of EPI data to exclude RS scans
+#	2) Updated blip adjust for fmap for e/run rather than phase
+#
+#
 # TODO: update for blip
 #		update for 1 t1w file only
 #		update for different template?
+#		get rid of atropos seg?
 
 
 module load afni-20.2.06

@@ -7,11 +7,8 @@
 #
 # Submit this from a clean environment (e.g. no emuR01_env)
 
-
-
-
 parDir=/scratch/madlab/chen_update  ###??? update this
-scriptDir=${parDir}/code
+scriptDir=~/compute/chen_analysis
 workDir=${parDir}/derivatives
 
 slurmDir=${workDir}/Slurm_out

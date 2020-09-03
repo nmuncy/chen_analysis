@@ -33,9 +33,11 @@
 # Updates:
 #	1) adjusted decon, reml commands for EMU study
 #	2) decon for each trial (not condition)
-#	3) removed post-hoc checks
-#	4) desired output is chenUpdate_foo_values.txt
+#	3) run decon on mean ROI time series, not whole brain
+#	4) removed post-hoc checks
+#	5) desired output is chenUpdate_foo_values.txt
 #		this contains parameter estimates for each trial
+#	6) changed motion from 0.3 to 1
 
 
 

@@ -11,13 +11,10 @@
 # They will be aligned with timing files.
 
 
-
-
 parDir=/scratch/madlab/chen_update
 workDir=${parDir}/derivatives
 outDir=${parDir}/csvOut
 refDir=${workDir}/sub-4002/ses-S1
-# refFile=${refFile}/chenUpdate_study_values.txt
 
 mkdir $outDir
 print=${outDir}/TrialBetas.txt
