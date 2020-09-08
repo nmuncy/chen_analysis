@@ -115,16 +115,27 @@ data_long <- data_long[-ind_nr, ]
 # add Stim-Beh col
 data_long$StimBeh <- NA
 data_long$StimBeh <- paste0(data_long$Stim, "-", data_long$Beh)
-write.csv(data_long,file=paste0(outDir,"/data_long.csv"),sep = ",")
+# write.csv(data_long,file=paste0(outDir,"/data_long.csv"),sep = ",")
 
 
 ### Stats
 # all data
 ggoutlier_hist(data_long, "Est", -2, 2)
-stat_lme <- lmer(Est ~ StimBeh + Pars + (1 | Image) + (Pars | Subj), data_long[data_long$Est < 2 & data_long$Est > -2, ])
-summary(stat_lme)
-sjPlot::plot_model(stat_lme, type="re", terms = c("Neg-Hit", "Neg-Miss"))
+data_clean <- data_long[data_long$Est < 2 & data_long$Est > -2, ]
 
+# no covariates
+# stat_lme_noco <- lmer(Est ~ Stim + Beh + (1 | Subj) + (1 | Image) , data_long[data_long$Est < 2 & data_long$Est > -2, ])
+stat_lme_noco <- lmer(Est ~ Stim + Beh + (1 | Subj) + (1 | Image) , data_clean)
+summary(stat_lme_noco)
+
+# p <- ggplot(data_clean, aes(x=StimBeh, y=Est, colour=Beh)) +
+#   geom_point(size=1) +
+#   geom_line(aes(y=predict(stat_lme_noco), group=Beh, size="Subj"))
+# p
+
+# covariates
+stat_lme <- lmer(Est ~ Stim + Beh + Pars + (1 | Subj) + (1 | Image) , data_long[data_long$Est < 2 & data_long$Est > -2, ], control=lmerControl(optCtrl=list(maxfun=20000) ))
+summary(stat_lme)
 
 
 
