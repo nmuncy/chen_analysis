@@ -55,7 +55,7 @@ sess=$2
 #
 # Change parameters for your study in this section.
 
-parDir=/scratch/madlab/chen_update				  			# parent dir, where derivatives is located
+parDir=/scratch/madlab/chen_analysis				  			# parent dir, where derivatives is located
 workDir=${parDir}/derivatives/${subj}/$sess
 priorDir=~/bin/Templates/vold2_mni/priors_JLF
 
@@ -354,5 +354,7 @@ if [ $runClean == 1 ]; then
 		rm study_{errts,stats}*
 		rm study_WM*
 		rm Template*
+		rm blip_warp*
+		rm rm.*
 	fi
 fi

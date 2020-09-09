@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH --time=15:00:00   # walltime
+#SBATCH --time=01:00:00   # walltime
 #SBATCH --ntasks=4   # number of processor cores (i.e. tasks)
 #SBATCH --nodes=1   # number of nodes
 #SBATCH --mem-per-cpu=4gb   # memory per CPU core
@@ -37,7 +37,7 @@
 #	2) Updated blip adjust for fmap for e/run rather than phase
 #
 #
-# TODO: update for blip
+# TODO: update for blip - get correct blip
 #		update for 1 t1w file only
 #		update for different template?
 #		get rid of atropos seg?
@@ -54,14 +54,15 @@ sess=$2
 
 
 ###??? update these
-workDir=/scratch/madlab/chen_update/derivatives/${subj}/$sess
+workDir=/scratch/madlab/chen_analysis/derivatives/${subj}/$sess
 dataDir=/home/data/madlab/McMakin_EMUR01/dset/${subj}/$sess
+anatDir=/home/data/madlab/McMakin_EMUR01/dset/${subj}/ses-S1/anat   # Because only 1 T1-weighted image per subj, not session
 
 tempDir=~/bin/Templates/vold2_mni
 template=${tempDir}/vold2_mni_brain+tlrc
 priorDir=${tempDir}/priors_ACT
 
-blip=0										# blip toggle (1=on), for fmap correction
+# blip=1										# blip toggle (1=on), for fmap correction
 
 phaseArr=(study)							# Each PHASE of experiment within same session (e.g. study, test)
 blockArr=(2)   								# number of blocks (runs) in each Phase. Integer. Length of blockArr must == phaseArr
@@ -109,24 +110,36 @@ done
 numRuns=${#block[@]}
 
 
+
+# trouble shooting
+echo "block = ${block[@]}" >&1
+
+
+
 # fmap(blip) data
 #	update for EMU
+
+
+#####	TODO update this even more, to find the correct FMAP
 cd ${dataDir}/fmap
-if [ $blip == 1 ]; then
+if [ ! -f ${workDir}/blip_Reverse+orig.HEAD ]; then
 
-	numBlip=`ls ${subj}_${sess}_*PA*.nii.gz | wc -l`
-	if [ $numBlip != $numRuns ]; then
-		echo "" >&2
-		echo "Number of PA FMAPs != to session runs. Exiting." >&2
-		echo "" >&2; exit 1
-	fi
+# 	numBlip=`ls ${subj}_${sess}_*PA*.nii.gz | wc -l`
+# 	if [ $numBlip != $numRuns ]; then
+# 		echo "" >&2
+# 		echo "Number of PA FMAPs != to session runs. Exiting." >&2
+# 		echo "" >&2; exit 1
+# 	fi
 
-	c=1; for i in ${subj}_${sess}_*PA*.nii.gz; do
-		if [ ! -f ${workDir}/fmap_run-${c}+orig.HEAD ]; then
-			3dcopy $i ${workDir}/fmap_run-${c}+orig
-		fi
-		let c+=1
-	done
+# 	c=1; for i in ${subj}_${sess}_*PA*.nii.gz; do
+# 		if [ ! -f ${workDir}/fmap_run-${c}+orig.HEAD ]; then
+# 			3dcopy $i ${workDir}/fmap_run-${c}+orig
+# 		fi
+# 		let c+=1
+# 	done
+
+	3dcopy sub-4000_ses-S1_acq-func_dir-PA_run-4_epi.nii.gz ${workDir}/blip_Reverse+orig
+	3dcopy sub-4000_ses-S1_acq-func_dir-AP_run-3_epi.nii.gz ${workDir}/blip_Forward+orig
 fi
 
 
@@ -137,129 +150,11 @@ fi
 #		scanning sessions
 
 # get t1 data
-cd ${dataDir}/anat
+# cd ${dataDir}/anat
+cd $anatDir
 
 if  [ ! -f ${workDir}/struct+orig.HEAD ]; then
 	3dcopy *run-1_T1w.nii.gz ${workDir}/struct+orig			### This was editted
-fi
-
-
-
-
-### --- Blip --- ###
-#
-# Correct for signal fallout in OFC by using data from an opposite phase encoding (Rev).
-# Find median datasets, compute midpoints, warp median datasets,
-# warp EPI timeseries
-
-
-cd $workDir
-if [ $blip == 1 ]; then
-	if [ ! -f run-1_${phaseArr[0]}_blip+orig.HEAD ]; then
-
-		### EMU update: account for blip for each run (rather than phase)
-		for a in ${!phaseArr[@]}; do
-
-			phaseNam=${phaseArr[$a]}
-			phaseNum=${blockArr[$a]}
-
-			for((num=1; num<=$phaseNum; num++)); do
-
-				## Calculate median value of fmap (blip)
-				# num=$(($a+1))
-				# phase=${phaseArr[$a]}
-
-				# 3dTcat -prefix tmp_blip${num} phase${num}_Blip+orig
-				# 3dTstat -median -prefix tmp_blip${num}_med tmp_blip${num}+orig
-				# 3dAutomask -apply_prefix tmp_blip${num}_med_masked tmp_blip${num}_med+orig
-
-				3dTcat -prefix tmp_blip-${num} fmap_run-${num}+orig			### is 3dTcat needed?
-				3dTstat -median -prefix tmp_blip-${num}_med tmp_blip-${num}+orig
-				3dAutomask -apply_prefix tmp_blip-${num}_med_masked tmp_blip-${num}_med+orig
-
-
-				## Calculate median value of task
-				# unset tcat_input
-				# for b in run-*${phase}+orig.HEAD; do
-				# 	tcat_input+="${b%.*} "
-				# done
-
-				# 3dTcat -prefix tmp_all${phase} $tcat_input
-				# 3dTstat -median -prefix tmp_all${phase}_med tmp_all${phase}+orig
-				# 3dAutomask -apply_prefix tmp_all${phase}_med_masked tmp_all${phase}_med+orig
-
-				3dTcat -prefix tmp_run-${num} run-${num}_${phaseNam}+orig			### is 3dTcat needed?
-				3dTstat -median -prefix tmp_run-${num}_med tmp_run-${num}+orig
-				3dAutomask -apply_prefix tmp_run-${num}_med_masked tmp_run-${num}_med+orig
-
-
-				## Calculate warp between blip, task
-				# 3dQwarp -plusminus -pmNAMES Rev Task \
-				# 	-pblur 0.05 0.05 -blur -1 -1 \
-				# 	-noweight -minpatch 9 \
-				# 	-source tmp_blip${num}_med_masked+orig \
-				# 	-base tmp_all${phase}_med_masked+orig \
-				# 	-prefix tmp_${phase}_warp
-
-				3dQwarp -plusminus -pmNAMES Rev Task \
-					-pblur 0.05 0.05 -blur -1 -1 \
-					-noweight -minpatch 9 \
-					-source tmp_blip-${num}_med_masked+orig \
-					-base tmp_run-${num}_med_masked+orig \
-					-prefix tmp_blip-${num}_warp
-
-
-				## Warp med, masks blip into task space, apply coord space
-				# 3dNwarpApply -quintic -nwarp tmp_${phase}_warp_Task_WARP+orig \
-				# 	-source tmp_all${phase}_med+orig \
-				# 	-prefix tmp_all${phase}_NWA
-
-				3dNwarpApply -quintic \
-					-nwarp tmp_blip-${num}_warp_Task_WARP+orig \
-					-source tmp_run-${num}_med+orig \
-					-prefix tmp_run-${num}_NWA
-
-				# 3drefit -atrcopy tmp_all${phase}+orig IJK_TO_DICOM_REAL tmp_all${phase}_NWA+orig
-				3drefit -atrcopy tmp_run-${num}+orig IJK_TO_DICOM_REAL tmp_run-${num}_NWA+orig
-
-
-				# 3dNwarpApply -quintic -nwarp tmp_${phase}_warp_Task_WARP+orig \
-				# 	-source tmp_all${phase}_med_masked+orig \
-				# 	-prefix tmp_all${phase}_med_Task_masked
-
-				3dNwarpApply -quintic \
-					-nwarp tmp_blip-${num}_warp_Task_WARP+orig \
-					-source tmp_run-${num}_med_masked+orig \
-					-prefix tmp_run-${num}_med_Task_masked			
-
-				# 3drefit -atrcopy tmp_all${phase}+orig IJK_TO_DICOM_REAL tmp_all${phase}_med_Task_masked+orig
-				3drefit -atrcopy tmp_run-${num}+orig IJK_TO_DICOM_REAL tmp_run-${num}_med_Task_masked+orig
-
-
-				# warp EPI
-				# for j in run-*_${phase}+orig.HEAD; do
-				# 	scan=${j%+*}
-				# 	if [ ! -f ${scan}_blip+orig.HEAD ]; then
-
-				# 		3dNwarpApply -quintic \
-				# 			-nwarp tmp_${phase}_warp_Task_WARP+orig \
-				# 			-source ${j%.*} \
-				# 			-prefix ${scan}_blip
-
-				# 		3drefit -atrcopy tmp_all${phase}+orig IJK_TO_DICOM_REAL ${scan}_blip+orig
-				# 	fi
-				# done
-
-				3dNwarpApply -quintic \
-					-nwarp tmp_blip-${num}_warp_Task_WARP+orig \
-					-source run-${num}_${phaseNam}+orig \
-					-prefix run-${num}_${phaseNam}_blip
-
-				3drefit -atrcopy tmp_run-${num}+orig IJK_TO_DICOM_REAL run-${num}_${phaseNam}_blip+orig
-			done
-			# rm tmp_*
-		done
-	fi
 fi
 
 
@@ -273,29 +168,23 @@ fi
 #
 # The blip file will now be incorporated to account for signal fallout
 
+cd $workDir
 
+unset tr_counts
 for j in ${block[@]}; do
 
-	if [ $blip == 1 ]; then
-		input=${j}_blip+orig
-	else
-		input=${j}+orig
-	fi
-
 	# build outcount list
-	hold=`3dinfo -ntimes $input`
+	hold=`3dinfo -ntimes ${j}+orig`
 	tr_counts+="$hold "
-
 
 	if [ ! -s outcount.${j}.1D ]; then
 
 		# determine polort arg
-		len_tr=`3dinfo -tr $input`
+		len_tr=`3dinfo -tr ${j}+orig`
 		pol_time=$(echo $(echo $hold*$len_tr | bc)/150 | bc -l)
 		pol=$((1 + `printf "%.0f" $pol_time`))
 
-		3dToutcount -automask -fraction -polort $pol -legendre $input > outcount.${j}.1D
-
+		3dToutcount -automask -fraction -polort $pol -legendre ${j}+orig > outcount.${j}.1D
 
 		# censor
 		> out.${j}.pre_ss_warn.txt
@@ -305,6 +194,64 @@ for j in ${block[@]}; do
 		fi
 	fi
 done
+
+
+### Update - do blip here
+# Ripped from afni_proc.py
+
+if [ ! -f ${block[0]}_blip+orig.HEAD ]; then
+
+	# create median datasets from forward and reverse time series
+	3dTstat -median -prefix rm.blip.med.fwd blip_Forward+orig
+	3dTstat -median -prefix rm.blip.med.rev blip_Reverse+orig
+
+	# automask the median datasets 
+	3dAutomask -apply_prefix rm.blip.med.masked.fwd rm.blip.med.fwd+orig
+	3dAutomask -apply_prefix rm.blip.med.masked.rev rm.blip.med.rev+orig
+
+	# compute the midpoint warp between the median datasets
+	3dQwarp -plusminus -pmNAMES Rev For                           \
+	    -pblur 0.05 0.05 -blur -1 -1                          \
+	    -noweight -minpatch 9                                 \
+	    -source rm.blip.med.masked.rev+orig                   \
+	    -base   rm.blip.med.masked.fwd+orig                   \
+	    -prefix blip_warp
+
+	# # warp median datasets (forward and each masked) for QC checks
+	# # (and preserve obliquity)
+	# 3dNwarpApply -quintic -nwarp blip_warp_For_WARP+orig          \
+	# 	-source rm.blip.med.fwd+orig                     \
+	# 	-prefix blip_med_for
+
+	# 3drefit -atrcopy blip_forward+orig IJK_TO_DICOM_REAL          \
+	# 	blip_med_for+orig
+
+	# 3dNwarpApply -quintic -nwarp blip_warp_For_WARP+orig          \
+	# 	-source rm.blip.med.masked.fwd+orig              \
+	# 	-prefix blip_med_for_masked
+
+	# 3drefit -atrcopy blip_forward+orig IJK_TO_DICOM_REAL          \
+	# 	blip_med_for_masked+orig
+
+	# 3dNwarpApply -quintic -nwarp blip_warp_Rev_WARP+orig          \
+	# 	-source rm.blip.med.masked.rev+orig              \
+	# 	-prefix blip_med_rev_masked
+
+	# 3drefit -atrcopy blip_reverse+orig IJK_TO_DICOM_REAL          \
+	# 	blip_med_rev_masked+orig
+
+	# warp EPI time series data
+	for i in ${block[@]}; do
+	    3dNwarpApply -quintic -nwarp blip_warp_For_WARP+orig      \
+			-source ${i}+orig           \
+			-prefix ${i}_blip
+
+	    3drefit -atrcopy blip_forward+orig IJK_TO_DICOM_REAL      \
+			${i}_blip+orig
+	done
+fi
+
+
 
 
 if [ ! -f epi_vr_base+orig.HEAD ]; then
@@ -332,14 +279,8 @@ if [ ! -f epi_vr_base+orig.HEAD ]; then
 
 
 	# construct volreg base, print out
-	if [ $blip == 1 ]; then
-		newBase=${baseRun}_blip
-	else
-		newBase=$baseRun
-	fi
-
-	3dbucket -prefix epi_vr_base ${newBase}+orig"[${minouttr}]"
-	echo "$minoutrun $minouttr $newBase" > out_vr_base.txt
+	3dbucket -prefix epi_vr_base ${baseRun}_blip+orig"[${minouttr}]"
+	echo "$minoutrun $minouttr ${baseRun}_blip" > out_vr_base.txt
 fi
 
 
@@ -389,12 +330,6 @@ gridSize=`3dinfo -di ${block[0]}+orig`
 for j in ${block[@]}; do
 	if [ ! -f tmp_${j}_mask_warped+tlrc.HEAD ]; then
 
-		if [ $blip == 1 ]; then
-			input=${j}_blip+orig
-		else
-			input=${j}+orig
-		fi
-
 		# calc volreg
 		3dvolreg -verbose \
 		-zpad 1 \
@@ -403,7 +338,7 @@ for j in ${block[@]}; do
 		-prefix ${j}_volreg \
 		-cubic \
 		-1Dmatrix_save mat.${j}.vr.aff12.1D \
-		$input
+		${j}_blip+orig
 
 
 		# concat calcs for epi movement (volreg, align, warp)
@@ -416,13 +351,13 @@ for j in ${block[@]}; do
 		# warp epi
 		3dNwarpApply -master struct_ns+tlrc \
 		-dxyz $gridSize \
-		-source $input \
+		-source ${j}_blip+orig \
 		-nwarp "anat.un.aff.qw_WARP.nii mat.${j}.warp.aff12.1D" \
 		-prefix tmp_${j}_nomask
 
 
 		# warp mask for extents masking; make intersection mask (epi+anat)
-		3dcalc -overwrite -a $input -expr 1 -prefix tmp_${j}_mask
+		3dcalc -overwrite -a ${j}_blip+orig -expr 1 -prefix tmp_${j}_mask
 
 		3dNwarpApply -master struct_ns+tlrc \
 		-dxyz $gridSize \
@@ -453,95 +388,95 @@ for j in ${block[@]}; do
 done
 
 
-# warp volreg base
-if [ ! -f final_epi_vr_base+tlrc.HEAD ]; then
+# # warp volreg base
+# if [ ! -f final_epi_vr_base+tlrc.HEAD ]; then
 
-	# concat align, warp calcs
-	cat_matvec -ONELINE \
-	anat.un.aff.Xat.1D \
-	struct_al_junk_mat.aff12.1D -I  > mat.basewarp.aff12.1D
+# 	# concat align, warp calcs
+# 	cat_matvec -ONELINE \
+# 	anat.un.aff.Xat.1D \
+# 	struct_al_junk_mat.aff12.1D -I  > mat.basewarp.aff12.1D
 
-	3dNwarpApply -master struct_ns+tlrc \
-	-dxyz $gridSize \
-	-source epi_vr_base+orig \
-	-nwarp "anat.un.aff.qw_WARP.nii mat.basewarp.aff12.1D" \
-	-prefix final_epi_vr_base
-fi
-
-
-# anat copy
-if [ ! -f final_anat+tlrc.HEAD ]; then
-	3dcopy struct_ns+tlrc final_anat
-fi
+# 	3dNwarpApply -master struct_ns+tlrc \
+# 	-dxyz $gridSize \
+# 	-source epi_vr_base+orig \
+# 	-nwarp "anat.un.aff.qw_WARP.nii mat.basewarp.aff12.1D" \
+# 	-prefix final_epi_vr_base
+# fi
 
 
-# record registration costs; affine warp follower dsets
-if [ ! -f final_anat_head+tlrc.HEAD ]; then
-
-	3dAllineate -base final_epi_vr_base+tlrc -allcostX  \
-	-input final_anat+tlrc | tee out.allcostX.txt
-
-	3dNwarpApply -source struct+orig \
-	-master final_anat+tlrc \
-	-ainterp wsinc5 \
-	-nwarp anat.un.aff.qw_WARP.nii anat.un.aff.Xat.1D \
-	-prefix final_anat_head
-fi
+# # anat copy
+# if [ ! -f final_anat+tlrc.HEAD ]; then
+# 	3dcopy struct_ns+tlrc final_anat
+# fi
 
 
+# # record registration costs; affine warp follower dsets
+# if [ ! -f final_anat_head+tlrc.HEAD ]; then
+
+# 	3dAllineate -base final_epi_vr_base+tlrc -allcostX  \
+# 	-input final_anat+tlrc | tee out.allcostX.txt
+
+# 	3dNwarpApply -source struct+orig \
+# 	-master final_anat+tlrc \
+# 	-ainterp wsinc5 \
+# 	-nwarp anat.un.aff.qw_WARP.nii anat.un.aff.Xat.1D \
+# 	-prefix final_anat_head
+# fi
 
 
-### --- Create Masks --- ###
-#
-# An EPI T1 intersection mask is constructed, then tissue-class
-# masks are created (these are used for REML). The AFNI
-# version of tiss-seg is left, but I prefer the Atropos priors.
 
 
-# union inputs (combine Run masks); anat mask; intersecting; group
-if [ ! -f final_anat_mask+tlrc.HEAD ]; then
-
-	for j in ${block[@]}; do
-		3dAutomask -prefix tmp_mask.${j} ${j}_volreg_clean+tlrc
-	done
-	3dmask_tool -inputs tmp_mask.*+tlrc.HEAD -union -prefix full_mask
-
-	3dresample -master full_mask+tlrc -input struct_ns+tlrc -prefix tmp_anat_resamp
-	3dmask_tool -dilate_input 5 -5 -fill_holes -input tmp_anat_resamp+tlrc -prefix final_anat_mask
-
-	3dmask_tool -input full_mask+tlrc final_anat_mask+tlrc -inter -prefix mask_epi_anat
-	3dABoverlap -no_automask full_mask+tlrc final_anat_mask+tlrc | tee out.mask_ae_overlap.txt
-
-	3dresample -master full_mask+tlrc -prefix ./tmp_resam_group -input $template
-	3dmask_tool -dilate_input 5 -5 -fill_holes -input tmp_resam_group+tlrc -prefix Template_mask
-fi
+# ### --- Create Masks --- ###
+# #
+# # An EPI T1 intersection mask is constructed, then tissue-class
+# # masks are created (these are used for REML). The AFNI
+# # version of tiss-seg is left, but I prefer the Atropos priors.
 
 
-# seg tissue class, with Atropos priors, for REML step
-#	EMU update - this is now useless?
+# # union inputs (combine Run masks); anat mask; intersecting; group
+# if [ ! -f final_anat_mask+tlrc.HEAD ]; then
 
-if [ ! -f final_mask_GM_eroded+tlrc.HEAD ]; then
+# 	for j in ${block[@]}; do
+# 		3dAutomask -prefix tmp_mask.${j} ${j}_volreg_clean+tlrc
+# 	done
+# 	3dmask_tool -inputs tmp_mask.*+tlrc.HEAD -union -prefix full_mask
 
-	# get priors
-	tiss=(CSF GMc WM GMs)
-	prior=(Prior{1..4})
-	tissN=${#tiss[@]}
+# 	3dresample -master full_mask+tlrc -input struct_ns+tlrc -prefix tmp_anat_resamp
+# 	3dmask_tool -dilate_input 5 -5 -fill_holes -input tmp_anat_resamp+tlrc -prefix final_anat_mask
 
-	c=0; while [ $c -lt $tissN ]; do
-		cp ${priorDir}/${prior[$c]}.nii.gz ./tmp_${tiss[$c]}.nii.gz
-		let c=$[$c+1]
-	done
-	c3d tmp_GMc.nii.gz tmp_GMs.nii.gz -add -o tmp_GM.nii.gz
+# 	3dmask_tool -input full_mask+tlrc final_anat_mask+tlrc -inter -prefix mask_epi_anat
+# 	3dABoverlap -no_automask full_mask+tlrc final_anat_mask+tlrc | tee out.mask_ae_overlap.txt
 
-	# resample, erode
-	for i in CSF GM WM; do
+# 	3dresample -master full_mask+tlrc -prefix ./tmp_resam_group -input $template
+# 	3dmask_tool -dilate_input 5 -5 -fill_holes -input tmp_resam_group+tlrc -prefix Template_mask
+# fi
 
-		c3d tmp_${i}.nii.gz -thresh 0.3 1 1 0 -o tmp_${i}_bin.nii.gz
-		3dresample -master ${block[0]}_volreg_clean+tlrc -rmode NN -input tmp_${i}_bin.nii.gz -prefix final_mask_${i}+tlrc
-		3dmask_tool -input tmp_${i}_bin.nii.gz -dilate_input -1 -prefix tmp_mask_${i}_eroded
-		3dresample -master ${block[0]}_volreg_clean+tlrc -rmode NN -input tmp_mask_${i}_eroded+orig -prefix final_mask_${i}_eroded
-	done
-fi
+
+# # seg tissue class, with Atropos priors, for REML step
+# #	EMU update - this is now useless?
+
+# if [ ! -f final_mask_GM_eroded+tlrc.HEAD ]; then
+
+# 	# get priors
+# 	tiss=(CSF GMc WM GMs)
+# 	prior=(Prior{1..4})
+# 	tissN=${#tiss[@]}
+
+# 	c=0; while [ $c -lt $tissN ]; do
+# 		cp ${priorDir}/${prior[$c]}.nii.gz ./tmp_${tiss[$c]}.nii.gz
+# 		let c=$[$c+1]
+# 	done
+# 	c3d tmp_GMc.nii.gz tmp_GMs.nii.gz -add -o tmp_GM.nii.gz
+
+# 	# resample, erode
+# 	for i in CSF GM WM; do
+
+# 		c3d tmp_${i}.nii.gz -thresh 0.3 1 1 0 -o tmp_${i}_bin.nii.gz
+# 		3dresample -master ${block[0]}_volreg_clean+tlrc -rmode NN -input tmp_${i}_bin.nii.gz -prefix final_mask_${i}+tlrc
+# 		3dmask_tool -input tmp_${i}_bin.nii.gz -dilate_input -1 -prefix tmp_mask_${i}_eroded
+# 		3dresample -master ${block[0]}_volreg_clean+tlrc -rmode NN -input tmp_mask_${i}_eroded+orig -prefix final_mask_${i}_eroded
+# 	done
+# fi
 
 
 

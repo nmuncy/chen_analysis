@@ -7,7 +7,7 @@
 #
 # Submit this from a clean environment (e.g. no emuR01_env)
 
-parDir=/scratch/madlab/chen_update  ###??? update this
+parDir=/scratch/madlab/chen_analysis  ###??? update this
 scriptDir=~/compute/chen_analysis
 workDir=${parDir}/derivatives
 
@@ -23,7 +23,7 @@ for i in sub*; do
 		if [ ! -s ${i}/${j}/chenUpdate_study_values.txt ]; then
 
 			# determine cleaning arg (don't clean for sub-4002)
-			[ $i != sub-4002 ]
+			[ $i != sub-4000 ]
 			status=$?
 
 		    sbatch \

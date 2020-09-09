@@ -28,7 +28,7 @@ sess=$2
 
 
 # set orienting vars
-parDir=/scratch/madlab/chen_update
+parDir=/scratch/madlab/chen_analysis
 workDir=${parDir}/derivatives/${subj}/$sess
 codeDir=${parDir}/code
 

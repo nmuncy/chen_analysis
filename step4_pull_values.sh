@@ -11,7 +11,7 @@
 # They will be aligned with timing files.
 
 
-parDir=/scratch/madlab/chen_update
+parDir=/scratch/madlab/chen_analysis
 workDir=${parDir}/derivatives
 outDir=${parDir}/csvOut
 refDir=${workDir}/sub-4002/ses-S1

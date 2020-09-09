@@ -9,7 +9,7 @@
 
 
 
-parDir=/scratch/madlab/chen_update  ###??? update this
+parDir=/scratch/madlab/chen_analysis  ###??? update this
 scriptDir=~/compute/chen_analysis
 workDir=${parDir}/derivatives
 
@@ -23,7 +23,8 @@ mkdir -p $outDir
 
 cd $workDir
 
-for i in sub*; do
+# for i in sub*; do
+for i in sub-4000; do
 	for j in ses-S1; do
 		if [ ! -f ${i}/${j}/run-1_study_scale+tlrc.HEAD ]; then
 

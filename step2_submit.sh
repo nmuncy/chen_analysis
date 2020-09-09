@@ -17,7 +17,7 @@ if [[ -z $hold ]]; then
 fi
 
 
-parDir=/scratch/madlab/chen_update  ###??? update this
+parDir=/scratch/madlab/chen_analysis  ###??? update this
 scriptDir=${parDir}/code
 workDir=${parDir}/derivatives
 slurmDir=${workDir}/Slurm_out

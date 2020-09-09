@@ -9,7 +9,7 @@
 
 
 dataDir=/home/data/madlab/McMakin_EMUR01/dset
-workDir=/scratch/madlab/chen_update/derivatives
+workDir=/scratch/madlab/chen_analysis/derivatives
 
 cd $dataDir
 for i in sub-*; do
