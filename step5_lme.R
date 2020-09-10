@@ -125,13 +125,28 @@ data_clean <- data_long[data_long$Est < 2 & data_long$Est > -2, ]
 
 # no covariates
 # stat_lme_noco <- lmer(Est ~ Stim + Beh + (1 | Subj) + (1 | Image) , data_long[data_long$Est < 2 & data_long$Est > -2, ])
-stat_lme_noco <- lmer(Est ~ Stim + Beh + (1 | Subj) + (1 | Image) , data_clean)
-summary(stat_lme_noco)
+stat_lme <- lmer(Est ~ Stim + Beh + (1 | Subj) + (1 | Image) , data_clean)
+summary(stat_lme)
 
-# p <- ggplot(data_clean, aes(x=StimBeh, y=Est, colour=Beh)) +
-#   geom_point(size=1) +
-#   geom_line(aes(y=predict(stat_lme_noco), group=Beh, size="Subj"))
+# p <- ggplot(filter(data_clean, Stim == "Neg"), aes(x=Resp, y=Est, colour=Beh)) +
+#   geom_jitter(width = 0.2, height = 0) +
+#   theme_bw(base_size = 10)
 # p
+# 
+# p1 <- ggplot(filter(data_clean, Stim == "Neg"), aes(x=Resp, y=Est)) +
+#   geom_boxplot()
+# p1
+# 
+# p2 <- ggplot(filter(data_clean, Stim == "Pos"), aes(x=Est, fill=Resp)) +
+#   geom_density(alpha=0.3)
+# p2
+
+p3 <- ggplot(data_clean, aes(x=Est, fill=Resp)) +
+  geom_density(alpha=0.3) +
+  facet_wrap(~Stim)
+p3
+
+
 
 # covariates
 stat_lme <- lmer(Est ~ Stim + Beh + Pars + (1 | Subj) + (1 | Image) , data_long[data_long$Est < 2 & data_long$Est > -2, ], control=lmerControl(optCtrl=list(maxfun=20000) ))
